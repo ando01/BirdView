@@ -1,0 +1,30 @@
+body {
+    font-size: 0.9rem;
+}
+
+.summary-table th,
+.summary-table td {
+    text-align: center;
+    white-space: nowrap;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.8rem;
+}
+
+.summary-table th:first-child,
+.summary-table td:first-child {
+    text-align: left;
+}
+
+.thumb {
+    border-radius: 4px;
+    transition: transform 0.15s;
+}
+
+.thumb:hover {
+    transform: scale(1.1);
+}
+
+#mediaModal .modal-body img,
+#mediaModal .modal-body video {
+    max-height: 70vh;
+}

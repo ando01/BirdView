@@ -1,0 +1,72 @@
+camera:
+  # Required: your camera's RTSP stream URL
+  rtsp_url: rtsp://username:password@192.168.1.100:7447/stream
+  # How many frames per second to run ML detection on (1-5 is reasonable)
+  detection_fps: 2
+  # Rolling frame buffer for video clip extraction (seconds)
+  buffer_seconds: 60
+
+motion:
+  # Use motion detection as a pre-filter to skip idle frames
+  enabled: true
+  # Minimum contour area (pixels) to count as motion
+  min_area: 500
+
+detection:
+  # COCO object detection model (ships with container)
+  model: efficientdet_lite0.tflite
+  # Edge TPU compiled version (used automatically when Coral TPU detected)
+  edgetpu_model: efficientdet_lite0_edgetpu.tflite
+  # Minimum confidence to consider something a bird
+  bird_confidence: 0.5
+
+classification:
+  # Google birds_V1/3 species classifier (ships with container)
+  model: bird_classifier.tflite
+  # Edge TPU compiled version
+  edgetpu_model: bird_classifier_edgetpu.tflite
+  # Minimum confidence to accept a species identification
+  threshold: 0.7
+
+tracker:
+  # Consecutive frames without bird before ending an event (~5s at 2fps)
+  max_missing_frames: 10
+  # Minimum bounding box overlap to match detection to tracked bird
+  iou_threshold: 0.3
+
+storage:
+  # NAS mount point for snapshots and video clips
+  media_dir: /media
+  # Local storage for SQLite database (faster than NAS)
+  data_dir: /data
+  # Delete media older than this many days
+  retention_days: 30
+  # JPEG quality for snapshots (1-100)
+  snapshot_quality: 95
+
+clips:
+  # Record short video clips of each bird visit
+  enabled: true
+  # Seconds of video to include before bird was detected
+  pre_capture: 3
+  # Seconds of video to include after bird leaves
+  post_capture: 2
+  # Output clip FPS (should match your camera's native FPS)
+  fps: 15
+  # Maximum clip length in seconds (safety cap)
+  max_duration: 60
+
+# MQTT integration for Home Assistant (optional - remove this section to disable)
+mqtt:
+  broker: 192.168.1.x
+  port: 1883
+  username: ""
+  password: ""
+  # MQTT topic prefix for all messages
+  topic_prefix: birdfeeder
+  # Auto-register sensors in Home Assistant via MQTT Discovery
+  homeassistant_discovery: true
+
+web:
+  port: 7766
+  host: 0.0.0.0

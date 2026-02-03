@@ -1,0 +1,23 @@
+services:
+  birdfeeder:
+    container_name: birdfeeder
+    build: .
+    restart: unless-stopped
+    ports:
+      - "7766:7766"
+    volumes:
+      - ./config:/config
+      - ./data:/data
+      - nas_media:/media
+    devices:
+      - /dev/bus/usb:/dev/bus/usb    # USB Coral TPU passthrough
+    environment:
+      - TZ=America/New_York
+
+volumes:
+  nas_media:
+    driver: local
+    driver_opts:
+      type: cifs
+      device: "//NAS_IP/birdfeeder"
+      o: "addr=NAS_IP,username=USER,password=PASS,vers=3.0,uid=1000,gid=1000"

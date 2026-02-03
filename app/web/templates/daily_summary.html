@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}BirdFeeder - {{ date }}{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col">
+        <a href="/" class="btn btn-outline-secondary btn-sm">&larr; Today</a>
+        <form class="d-inline ms-3" onsubmit="return navigateToDate(event)">
+            <input type="date" id="datePicker" class="form-control d-inline-block w-auto"
+                   value="{{ date }}" min="{{ earliest_date }}">
+            <button type="submit" class="btn btn-primary btn-sm">Go</button>
+        </form>
+    </div>
+</div>
+
+<h4>Summary for {{ date }}</h4>
+{% if daily_summary %}
+<div class="table-responsive">
+    <table class="table table-sm table-bordered summary-table">
+        <thead>
+            <tr>
+                <th>Species</th>
+                <th>Total</th>
+                {% for h in range(24) %}
+                <th><a href="/detections/by_hour/{{ date }}/{{ h }}">{{ "%02d"|format(h) }}</a></th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for name, data in daily_summary.items() %}
+            <tr>
+                <td><a href="/detections/by_species/{{ data.scientific_name }}/{{ date }}">{{ data.common_name }}</a></td>
+                <td class="fw-bold">{{ data.total }}</td>
+                {% for h in range(24) %}
+                <td>
+                    {% if data.hourly[h] > 0 %}
+                    <a href="/detections/by_hour/{{ date }}/{{ h }}">{{ data.hourly[h] }}</a>
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="text-muted">No detections on {{ date }}.</p>
+{% endif %}
+
+<script>
+function navigateToDate(e) {
+    e.preventDefault();
+    const date = document.getElementById('datePicker').value;
+    if (date) window.location.href = '/daily_summary/' + date;
+    return false;
+}
+</script>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}BirdFeeder - {{ common_name }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="/daily_summary/{{ date }}" class="btn btn-outline-secondary btn-sm">&larr; Back to {{ date }}</a>
+</div>
+
+<h4>{{ common_name }} <small class="text-muted">({{ scientific_name }})</small> on {{ date }}</h4>
+{% if detections %}
+<div class="table-responsive">
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Confidence</th>
+                <th>Duration</th>
+                <th>Thumbnail</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in detections %}
+            <tr>
+                <td>{{ d.detection_time|time_only }}</td>
+                <td>{{ d.score|pct }}</td>
+                <td>{{ "%.1f"|format(d.duration_seconds) }}s</td>
+                <td>
+                    {% if d.thumbnail_path %}
+                    <img src="/media/{{ d.thumbnail_path }}" alt="{{ d.common_name }}"
+                         class="thumb" style="cursor:pointer; max-height:80px;"
+                         onclick="openMediaModal('{{ d.common_name }}',
+                                  '{{ "/media/" + d.snapshot_path if d.snapshot_path else "" }}',
+                                  '{{ "/media/" + d.clip_path if d.clip_path else "" }}')">
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p class="text-muted">No detections of this species on {{ date }}.</p>
+{% endif %}
+{% endblock %}

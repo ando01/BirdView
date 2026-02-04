@@ -47,10 +47,23 @@ class DetectionPipeline(threading.Thread):
         self._running = True
         self._frame_interval = 1.0 / config.camera.detection_fps
         self._events_today = 0
+        self._last_detection_info = None
 
     @property
     def events_today(self) -> int:
         return self._events_today
+
+    @property
+    def last_detection_info(self) -> Optional[dict]:
+        return self._last_detection_info
+
+    @property
+    def active_birds(self) -> int:
+        return self._tracker.active_count
+
+    @property
+    def detecting(self) -> bool:
+        return self._tracker.active_count > 0
 
     def run(self):
         last_process_time = 0.0
@@ -163,6 +176,12 @@ class DetectionPipeline(threading.Thread):
             snapshot_path=snapshot_path,
             thumbnail_path=thumbnail_path,
         )
+
+        self._last_detection_info = {
+            "species": cls.common_name,
+            "score": cls.score,
+            "time": event.first_seen.strftime("%H:%M:%S"),
+        }
 
         logger.info(
             "Event %s: %s (score=%.2f, duration=%.1fs)",

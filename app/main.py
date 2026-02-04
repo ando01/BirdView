@@ -130,7 +130,7 @@ def main():
 
     # Flask web server (blocking, runs in main thread)
     logger.info("Starting web server on %s:%d", config.web.host, config.web.port)
-    flask_app = create_app(db, storage, config)
+    flask_app = create_app(db, storage, config, camera, pipeline)
     flask_app.run(
         host=config.web.host,
         port=config.web.port,

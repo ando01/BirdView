@@ -156,6 +156,8 @@ Omit the `mqtt` section entirely to disable MQTT. When enabled, BirdFeeder publi
 
 The web interface is available at `http://<host>:7766` and provides:
 
+- **Live stream** -- real-time MJPEG view from the camera with detection status panel
+- **Status indicators** -- camera connection and active detection badges in the navbar on every page
 - **Dashboard** -- today's recent detections and hourly summary table
 - **Date navigation** -- browse any past date with detections
 - **Hourly drilldown** -- all detections in a specific hour
@@ -171,6 +173,23 @@ The web interface is available at `http://<host>:7766` and provides:
   "status": "running",
   "events_today": 42,
   "species_today": 8
+}
+```
+
+`GET /api/stream_status` returns real-time camera and detection state:
+
+```json
+{
+  "camera_connected": true,
+  "camera_fps": 15.0,
+  "active_birds": 2,
+  "detecting": true,
+  "events_today": 15,
+  "last_detection": {
+    "species": "Northern Cardinal",
+    "time": "14:30:22",
+    "score": 0.95
+  }
 }
 ```
 

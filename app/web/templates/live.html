@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}BirdFeeder - Live{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-9 mb-3">
+        <div class="bg-dark rounded overflow-hidden text-center">
+            <img id="liveStream" src="/video_feed" class="img-fluid" alt="Live Stream"
+                 style="max-height: 75vh;">
+            <div id="streamOffline" class="d-none text-light py-5">
+                <h4>Camera Offline</h4>
+                <p class="text-muted">Waiting for stream connection...</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-3">
+        <div class="card bg-dark text-light mb-3">
+            <div class="card-header">Status</div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <small class="text-muted">Camera</small>
+                    <div>
+                        <span id="liveDot" class="status-dot status-offline"></span>
+                        <span id="liveConnText">Offline</span>
+                        <span id="liveFps" class="text-muted ms-2"></span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">Detection</small>
+                    <div id="liveDetectionStatus" class="text-muted">Idle</div>
+                </div>
+                <div class="mb-3">
+                    <small class="text-muted">Events Today</small>
+                    <div id="liveEventsToday" class="fs-4 fw-bold">0</div>
+                </div>
+            </div>
+        </div>
+        <div class="card bg-dark text-light">
+            <div class="card-header">Last Detection</div>
+            <div class="card-body">
+                <div id="lastDetectionInfo">
+                    <p class="text-muted mb-0">No detections yet</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updateLiveStatus() {
+        fetch('/api/stream_status')
+            .then(r => r.json())
+            .then(data => {
+                const dot = document.getElementById('liveDot');
+                const connText = document.getElementById('liveConnText');
+                const fps = document.getElementById('liveFps');
+                const stream = document.getElementById('liveStream');
+                const offline = document.getElementById('streamOffline');
+                const detStatus = document.getElementById('liveDetectionStatus');
+                const eventsEl = document.getElementById('liveEventsToday');
+                const lastDet = document.getElementById('lastDetectionInfo');
+
+                if (data.camera_connected) {
+                    dot.className = 'status-dot status-online';
+                    connText.textContent = 'Connected';
+                    fps.textContent = data.camera_fps.toFixed(0) + ' FPS';
+                    stream.classList.remove('d-none');
+                    offline.classList.add('d-none');
+                } else {
+                    dot.className = 'status-dot status-offline';
+                    connText.textContent = 'Offline';
+                    fps.textContent = '';
+                    stream.classList.add('d-none');
+                    offline.classList.remove('d-none');
+                }
+
+                if (data.detecting) {
+                    detStatus.innerHTML = '<span class="text-success">Active</span> &mdash; ' +
+                        data.active_birds + ' bird' + (data.active_birds !== 1 ? 's' : '') + ' tracked';
+                } else {
+                    detStatus.textContent = 'Idle';
+                }
+
+                eventsEl.textContent = data.events_today;
+
+                if (data.last_detection) {
+                    lastDet.innerHTML =
+                        '<div class="fw-bold">' + data.last_detection.species + '</div>' +
+                        '<div class="text-muted small">' +
+                        (data.last_detection.score * 100).toFixed(0) + '% confidence' +
+                        '</div>' +
+                        '<div class="text-muted small">at ' + data.last_detection.time + '</div>';
+                }
+            })
+            .catch(() => {});
+    }
+    updateLiveStatus();
+    setInterval(updateLiveStatus, 2000);
+</script>
+{% endblock %}

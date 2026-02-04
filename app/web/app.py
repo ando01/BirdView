@@ -1,13 +1,21 @@
 from flask import Flask
 
+from app.camera import CameraStream
 from app.config import AppConfig
 from app.db import Database
+from app.pipeline import DetectionPipeline
 from app.storage import ImageStorage
 from app.web.filters import register_filters
 from app.web.routes import register_routes
 
 
-def create_app(db: Database, storage: ImageStorage, config: AppConfig) -> Flask:
+def create_app(
+    db: Database,
+    storage: ImageStorage,
+    config: AppConfig,
+    camera: CameraStream,
+    pipeline: DetectionPipeline,
+) -> Flask:
     app = Flask(
         __name__,
         template_folder="templates",
@@ -17,6 +25,8 @@ def create_app(db: Database, storage: ImageStorage, config: AppConfig) -> Flask:
     app.config["db"] = db
     app.config["storage"] = storage
     app.config["app_config"] = config
+    app.config["camera"] = camera
+    app.config["pipeline"] = pipeline
 
     register_filters(app)
     register_routes(app)

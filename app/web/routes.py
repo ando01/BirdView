@@ -1,8 +1,10 @@
-import os
+import time
 from datetime import datetime
 
+import cv2
 from flask import (
     Flask,
+    Response,
     current_app,
     jsonify,
     render_template,
@@ -86,4 +88,46 @@ def register_routes(app: Flask):
             "status": "running",
             "events_today": total_today,
             "species_today": len(summary),
+        })
+
+    @app.route("/live")
+    def live():
+        return render_template("live.html")
+
+    @app.route("/video_feed")
+    def video_feed():
+        camera = current_app.config["camera"]
+
+        def generate():
+            while True:
+                frame = camera.get_frame()
+                if frame is not None:
+                    _, jpeg = cv2.imencode(
+                        ".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70]
+                    )
+                    yield (
+                        b"--frame\r\n"
+                        b"Content-Type: image/jpeg\r\n\r\n"
+                        + jpeg.tobytes()
+                        + b"\r\n"
+                    )
+                time.sleep(0.1)  # ~10 FPS
+
+        return Response(
+            generate(),
+            mimetype="multipart/x-mixed-replace; boundary=frame",
+        )
+
+    @app.route("/api/stream_status")
+    def stream_status():
+        camera = current_app.config["camera"]
+        pipeline = current_app.config["pipeline"]
+
+        return jsonify({
+            "camera_connected": camera.connected,
+            "camera_fps": camera.fps,
+            "active_birds": pipeline.active_birds,
+            "detecting": pipeline.detecting,
+            "events_today": pipeline.events_today,
+            "last_detection": pipeline.last_detection_info,
         })

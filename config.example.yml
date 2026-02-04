@@ -35,9 +35,11 @@ tracker:
   iou_threshold: 0.3
 
 storage:
-  # NAS mount point for snapshots and video clips
+  # Directory for snapshots, thumbnails, and video clips
+  # Default: /media (mapped to ./media on host via docker-compose.yml)
+  # For NAS storage, see docker-compose.yml for setup instructions.
   media_dir: /media
-  # Local storage for SQLite database (faster than NAS)
+  # Directory for SQLite database (local storage recommended for performance)
   data_dir: /data
   # Delete media older than this many days
   retention_days: 30

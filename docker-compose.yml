@@ -8,16 +8,21 @@ services:
     volumes:
       - ./config:/config
       - ./data:/data
-      - nas_media:/media
+      - ./media:/media        # Local storage (works out of the box)
     devices:
       - /dev/bus/usb:/dev/bus/usb    # USB Coral TPU passthrough
     environment:
       - TZ=America/New_York
 
-volumes:
-  nas_media:
-    driver: local
-    driver_opts:
-      type: cifs
-      device: "//NAS_IP/birdfeeder"
-      o: "addr=NAS_IP,username=USER,password=PASS,vers=3.0,uid=1000,gid=1000"
+# --- Optional: NAS storage ---
+# To store media on a NAS instead of locally, replace ./media:/media above with:
+#     - nas_media:/media
+# Then uncomment the volumes section below and fill in your NAS details.
+#
+# volumes:
+#   nas_media:
+#     driver: local
+#     driver_opts:
+#       type: cifs
+#       device: "//NAS_IP/birdfeeder"
+#       o: "addr=NAS_IP,username=USER,password=PASS,vers=3.0,uid=1000,gid=1000"

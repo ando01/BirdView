@@ -29,8 +29,15 @@ class MotionDetector:
             fg_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
         )
 
+        max_area = 0
         for contour in contours:
-            if cv2.contourArea(contour) > self._min_area:
+            area = cv2.contourArea(contour)
+            max_area = max(max_area, area)
+            if area > self._min_area:
+                logger.debug("Motion detected: area=%d (threshold=%d)", int(area), self._min_area)
                 return True
 
+        if contours:
+            logger.debug("Motion rejected: max_area=%d < threshold=%d (%d contours)",
+                        int(max_area), self._min_area, len(contours))
         return False

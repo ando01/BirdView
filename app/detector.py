@@ -71,13 +71,19 @@ class BirdDetector:
         count = int(self._interpreter.get_tensor(self._output_details[3]["index"])[0])
 
         detections = []
+        bird_candidates = 0
         for i in range(count):
             class_id = int(classes[i])
             score = float(scores[i])
 
             if class_id != BIRD_CLASS_ID:
                 continue
+
+            bird_candidates += 1
+
             if score < self._confidence_threshold:
+                logger.debug("Bird rejected: confidence=%.3f < threshold=%.3f",
+                            score, self._confidence_threshold)
                 continue
 
             ymin, xmin, ymax, xmax = boxes[i]
@@ -88,9 +94,17 @@ class BirdDetector:
                 y2=min(h, int(ymax * h)),
             )
 
-            if (bbox.x2 - bbox.x1) < 10 or (bbox.y2 - bbox.y1) < 10:
+            bbox_w = bbox.x2 - bbox.x1
+            bbox_h = bbox.y2 - bbox.y1
+            if bbox_w < 10 or bbox_h < 10:
+                logger.debug("Bird rejected: bbox too small (%dx%d)", bbox_w, bbox_h)
                 continue
 
+            logger.debug("Bird detected: confidence=%.3f, bbox=(%d,%d,%d,%d)",
+                        score, bbox.x1, bbox.y1, bbox.x2, bbox.y2)
             detections.append(Detection(bbox=bbox, confidence=score))
+
+        if bird_candidates > 0 and not detections:
+            logger.debug("All %d bird candidates were filtered out", bird_candidates)
 
         return detections

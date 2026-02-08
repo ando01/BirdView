@@ -101,6 +101,11 @@ class DetectionPipeline(threading.Thread):
                 self._finalize_events(completed)
                 continue
 
+            if self._motion:
+                logger.debug("Frame passed motion filter, running detection...")
+            else:
+                logger.debug("Motion filter disabled, running detection...")
+
             # Step 2: Object detection
             try:
                 detections = self._detector.detect(frame)
@@ -109,9 +114,12 @@ class DetectionPipeline(threading.Thread):
                 continue
 
             if not detections:
+                logger.debug("No birds detected in frame")
                 completed = self._tracker.update([], [], frame, timestamp)
                 self._finalize_events(completed)
                 continue
+
+            logger.debug("Found %d bird detection(s), classifying...", len(detections))
 
             # Step 3: Classify each detected bird
             classifications = []
@@ -138,6 +146,12 @@ class DetectionPipeline(threading.Thread):
     def _finalize_events(self, completed_events: List[TrackedBird]):
         for event in completed_events:
             if event.best_classification is None:
+                logger.debug(
+                    "Event %s discarded: no successful classification (tracked %d frames, conf=%.3f)",
+                    event.event_id[:8],
+                    event.frame_count,
+                    event.best_detection_conf or 0.0,
+                )
                 continue
 
             try:

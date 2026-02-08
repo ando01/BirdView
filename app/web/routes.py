@@ -8,8 +8,11 @@ from flask import (
     current_app,
     jsonify,
     render_template,
+    request,
     send_from_directory,
 )
+
+from app.log_buffer import log_buffer
 
 
 def register_routes(app: Flask):
@@ -131,3 +134,13 @@ def register_routes(app: Flask):
             "events_today": pipeline.events_today,
             "last_detection": pipeline.last_detection_info,
         })
+
+    @app.route("/logs")
+    def logs():
+        return render_template("logs.html")
+
+    @app.route("/api/logs")
+    def api_logs():
+        limit = request.args.get("limit", 100, type=int)
+        logs = log_buffer.get_logs(limit=min(limit, 500))
+        return jsonify({"logs": logs})

@@ -11,6 +11,7 @@ from app.clip import ClipEncoder
 from app.config import load_config
 from app.db import Database
 from app.detector import BirdDetector
+from app.log_buffer import log_buffer
 from app.motion import MotionDetector
 from app.mqtt import MQTTPublisher
 from app.pipeline import DetectionPipeline
@@ -24,6 +25,10 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("birdfeeder")
+
+# Add log buffer handler to capture logs for web UI
+log_buffer.setFormatter(logging.Formatter("%(message)s"))
+logging.getLogger().addHandler(log_buffer)
 
 
 def cleanup_scheduler(db: Database, storage: ImageStorage, retention_days: int):

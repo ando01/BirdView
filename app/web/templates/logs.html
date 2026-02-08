@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Logs - BirdFeeder{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Application Logs</h4>
+            <div>
+                <button class="btn btn-sm btn-outline-secondary" onclick="refreshLogs()">Refresh</button>
+                <button class="btn btn-sm btn-outline-secondary" id="autoRefreshBtn" onclick="toggleAutoRefresh()">
+                    Auto-refresh: OFF
+                </button>
+            </div>
+        </div>
+        <div class="card bg-dark text-light">
+            <div class="card-body p-0">
+                <div id="logContainer" style="height: 70vh; overflow-y: auto; font-family: monospace; font-size: 0.85rem;">
+                    <table class="table table-dark table-sm table-hover mb-0">
+                        <thead style="position: sticky; top: 0; background: #212529;">
+                            <tr>
+                                <th style="width: 160px;">Timestamp</th>
+                                <th style="width: 70px;">Level</th>
+                                <th style="width: 150px;">Logger</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTableBody">
+                            <tr><td colspan="4" class="text-center text-muted">Loading logs...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let autoRefreshInterval = null;
+
+    function getLevelClass(level) {
+        switch(level) {
+            case 'ERROR': return 'text-danger';
+            case 'WARNING': return 'text-warning';
+            case 'DEBUG': return 'text-secondary';
+            default: return '';
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
+    function refreshLogs() {
+        fetch('/api/logs?limit=200')
+            .then(r => r.json())
+            .then(data => {
+                const tbody = document.getElementById('logTableBody');
+                if (data.logs.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No logs available</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = data.logs.map(log => `
+                    <tr class="${getLevelClass(log.level)}">
+                        <td>${escapeHtml(log.timestamp)}</td>
+                        <td>${escapeHtml(log.level)}</td>
+                        <td class="text-truncate" style="max-width: 150px;" title="${escapeHtml(log.logger)}">${escapeHtml(log.logger)}</td>
+                        <td>${escapeHtml(log.message)}</td>
+                    </tr>
+                `).join('');
+            })
+            .catch(err => {
+                document.getElementById('logTableBody').innerHTML =
+                    '<tr><td colspan="4" class="text-center text-danger">Error loading logs</td></tr>';
+            });
+    }
+
+    function toggleAutoRefresh() {
+        const btn = document.getElementById('autoRefreshBtn');
+        if (autoRefreshInterval) {
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = null;
+            btn.textContent = 'Auto-refresh: OFF';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-secondary');
+        } else {
+            autoRefreshInterval = setInterval(refreshLogs, 2000);
+            btn.textContent = 'Auto-refresh: ON';
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-success');
+        }
+    }
+
+    // Initial load
+    refreshLogs();
+</script>
+{% endblock %}

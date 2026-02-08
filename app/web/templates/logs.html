@@ -8,6 +8,9 @@
         <div class="d-flex justify-content-between align-items-center mb-3">
             <h4>Application Logs</h4>
             <div>
+                <button class="btn btn-sm btn-outline-secondary" id="filterBtn" onclick="toggleFilter()" title="Filter out HTTP logs from internal IP addresses">
+                    Filter internal IPs: ...
+                </button>
                 <button class="btn btn-sm btn-outline-secondary" onclick="refreshLogs()">Refresh</button>
                 <button class="btn btn-sm btn-outline-secondary" id="autoRefreshBtn" onclick="toggleAutoRefresh()">
                     Auto-refresh: OFF
@@ -40,6 +43,35 @@
 {% block scripts %}
 <script>
     let autoRefreshInterval = null;
+
+    function updateFilterButton(isActive) {
+        const btn = document.getElementById('filterBtn');
+        if (isActive) {
+            btn.textContent = 'Filter internal IPs: ON';
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-info');
+        } else {
+            btn.textContent = 'Filter internal IPs: OFF';
+            btn.classList.remove('btn-info');
+            btn.classList.add('btn-outline-secondary');
+        }
+    }
+
+    function loadFilterStatus() {
+        fetch('/api/logs/filter_status')
+            .then(r => r.json())
+            .then(data => updateFilterButton(data.filter_internal_ips))
+            .catch(() => {
+                document.getElementById('filterBtn').textContent = 'Filter: N/A';
+            });
+    }
+
+    function toggleFilter() {
+        fetch('/api/logs/filter_toggle', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => updateFilterButton(data.filter_internal_ips))
+            .catch(err => console.error('Failed to toggle filter:', err));
+    }
 
     function getLevelClass(level) {
         switch(level) {
@@ -98,5 +130,6 @@
 
     // Initial load
     refreshLogs();
+    loadFilterStatus();
 </script>
 {% endblock %}

@@ -1,3 +1,4 @@
+import logging
 import time
 from datetime import datetime
 
@@ -144,3 +145,26 @@ def register_routes(app: Flask):
         limit = request.args.get("limit", 100, type=int)
         logs = log_buffer.get_logs(limit=min(limit, 500))
         return jsonify({"logs": logs})
+
+    @app.route("/api/logs/filter_status")
+    def api_logs_filter_status():
+        werkzeug_filter = current_app.config.get("werkzeug_filter")
+        werkzeug_logger = logging.getLogger("werkzeug")
+        is_active = werkzeug_filter in werkzeug_logger.filters if werkzeug_filter else False
+        return jsonify({"filter_internal_ips": is_active})
+
+    @app.route("/api/logs/filter_toggle", methods=["POST"])
+    def api_logs_filter_toggle():
+        werkzeug_filter = current_app.config.get("werkzeug_filter")
+        if not werkzeug_filter:
+            return jsonify({"error": "Filter not available"}), 400
+
+        werkzeug_logger = logging.getLogger("werkzeug")
+        is_active = werkzeug_filter in werkzeug_logger.filters
+
+        if is_active:
+            werkzeug_logger.removeFilter(werkzeug_filter)
+        else:
+            werkzeug_logger.addFilter(werkzeug_filter)
+
+        return jsonify({"filter_internal_ips": not is_active})

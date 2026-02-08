@@ -80,6 +80,11 @@ class WebConfig:
 
 
 @dataclass
+class LoggingConfig:
+    filter_internal_ips: bool = True
+
+
+@dataclass
 class AppConfig:
     camera: CameraConfig
     motion: MotionConfig = field(default_factory=MotionConfig)
@@ -90,6 +95,7 @@ class AppConfig:
     clips: ClipConfig = field(default_factory=ClipConfig)
     mqtt: Optional[MQTTConfig] = None
     web: WebConfig = field(default_factory=WebConfig)
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
 
 
 def _build_dataclass(cls, data: dict):
@@ -120,6 +126,7 @@ def load_config(path: str = "/config/config.yml") -> AppConfig:
     storage = _build_dataclass(StorageConfig, raw.get("storage"))
     clips = _build_dataclass(ClipConfig, raw.get("clips"))
     web = _build_dataclass(WebConfig, raw.get("web"))
+    logging_cfg = _build_dataclass(LoggingConfig, raw.get("logging"))
 
     mqtt = None
     if "mqtt" in raw and raw["mqtt"]:
@@ -137,6 +144,7 @@ def load_config(path: str = "/config/config.yml") -> AppConfig:
         clips=clips,
         mqtt=mqtt,
         web=web,
+        logging=logging_cfg,
     )
 
     logger.info("Configuration loaded from %s", path)

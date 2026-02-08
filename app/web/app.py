@@ -1,3 +1,5 @@
+import logging
+
 from flask import Flask
 
 from app.camera import CameraStream
@@ -15,6 +17,7 @@ def create_app(
     config: AppConfig,
     camera: CameraStream,
     pipeline: DetectionPipeline,
+    werkzeug_filter: logging.Filter = None,
 ) -> Flask:
     app = Flask(
         __name__,
@@ -27,6 +30,7 @@ def create_app(
     app.config["app_config"] = config
     app.config["camera"] = camera
     app.config["pipeline"] = pipeline
+    app.config["werkzeug_filter"] = werkzeug_filter
 
     register_filters(app)
     register_routes(app)

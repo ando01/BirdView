@@ -1,5 +1,7 @@
+import ipaddress
 import logging
 import os
+import re
 import signal
 import sys
 import threading
@@ -25,6 +27,26 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 logger = logging.getLogger("birdfeeder")
+
+
+class WerkzeugInternalIPFilter(logging.Filter):
+    """Filter out werkzeug request logs from internal/private IP addresses."""
+
+    IP_PATTERN = re.compile(r"^(\d+\.\d+\.\d+\.\d+)")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        match = self.IP_PATTERN.match(message)
+        if match:
+            try:
+                ip = ipaddress.ip_address(match.group(1))
+                return not ip.is_private
+            except ValueError:
+                pass
+        return True
+
+
+werkzeug_filter = WerkzeugInternalIPFilter()
 
 # Add log buffer handler to capture logs for web UI
 log_buffer.setFormatter(logging.Formatter("%(message)s"))
@@ -52,6 +74,12 @@ def main():
     except (FileNotFoundError, ValueError) as e:
         logger.error("Configuration error: %s", e)
         sys.exit(1)
+
+    # Configure werkzeug log filtering
+    werkzeug_logger = logging.getLogger("werkzeug")
+    if config.logging.filter_internal_ips:
+        werkzeug_logger.addFilter(werkzeug_filter)
+        logger.info("Filtering werkzeug logs from internal IPs")
 
     # Database
     db_path = os.path.join(config.storage.data_dir, "birdfeeder.db")
@@ -135,7 +163,7 @@ def main():
 
     # Flask web server (blocking, runs in main thread)
     logger.info("Starting web server on %s:%d", config.web.host, config.web.port)
-    flask_app = create_app(db, storage, config, camera, pipeline)
+    flask_app = create_app(db, storage, config, camera, pipeline, werkzeug_filter)
     flask_app.run(
         host=config.web.host,
         port=config.web.port,

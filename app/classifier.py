@@ -124,12 +124,8 @@ class BirdClassifier:
         top_score = float(scores[top_index])
 
         if top_index == BACKGROUND_INDEX:
-            logger.debug("Classification rejected: detected as background (index=%d)", top_index)
             return None
         if top_score < self._threshold:
-            label = self._labels.get(top_index, f"Unknown ({top_index})")
-            logger.debug("Classification rejected: score=%.3f < threshold=%.3f (species=%s)",
-                        top_score, self._threshold, label)
             return None
 
         scientific_name = self._labels.get(top_index, f"Unknown ({top_index})")

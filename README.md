@@ -118,6 +118,8 @@ All configuration lives in `config/config.yml`. See [`config.example.yml`](confi
 
 ### Video Clips
 
+Video clips are encoded with H.264 (via ffmpeg) for broad browser compatibility.
+
 | Key | Default | Description |
 |-----|---------|-------------|
 | `enabled` | `true` | Record video clips of bird visits |

@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 import tempfile
 import threading
 from datetime import datetime
@@ -19,6 +20,36 @@ class ClipEncoder:
         self._temp_dir = temp_dir
         os.makedirs(temp_dir, exist_ok=True)
 
+    def _transcode_to_h264(self, input_path: str, output_path: str) -> bool:
+        """Transcode video to H.264 using ffmpeg for browser compatibility."""
+        try:
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i", input_path,
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "23",
+                "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                output_path,
+            ]
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                timeout=60,
+            )
+            if result.returncode != 0:
+                logger.error("ffmpeg transcode failed: %s", result.stderr.decode())
+                return False
+            return True
+        except subprocess.TimeoutExpired:
+            logger.error("ffmpeg transcode timed out for %s", input_path)
+            return False
+        except Exception:
+            logger.exception("Error transcoding clip")
+            return False
+
     def encode_clip(
         self,
         frames: List[Tuple[datetime, np.ndarray]],
@@ -35,22 +66,32 @@ class ClipEncoder:
         h, w = frames[0][1].shape[:2]
         fps = self._config.fps
 
+        # First encode with OpenCV (mp4v codec)
+        temp_raw = output_path + ".raw.mp4"
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        writer = cv2.VideoWriter(output_path, fourcc, fps, (w, h))
+        writer = cv2.VideoWriter(temp_raw, fourcc, fps, (w, h))
 
         if not writer.isOpened():
-            logger.error("Failed to open VideoWriter for %s", output_path)
+            logger.error("Failed to open VideoWriter for %s", temp_raw)
             return False
 
         try:
             for _, frame in frames:
                 writer.write(frame)
-            return True
         except Exception:
             logger.exception("Error encoding clip")
             return False
         finally:
             writer.release()
+
+        # Transcode to H.264 for browser compatibility
+        success = self._transcode_to_h264(temp_raw, output_path)
+
+        # Clean up temporary file
+        if os.path.exists(temp_raw):
+            os.unlink(temp_raw)
+
+        return success
 
     def encode_clip_async(
         self,

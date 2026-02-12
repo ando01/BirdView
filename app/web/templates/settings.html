@@ -94,6 +94,7 @@ let zonePoints = [];
 let canvas, ctx, img;
 let imgNaturalWidth = 1920;
 let imgNaturalHeight = 1080;
+let settingsLoaded = false;
 
 function initZoneEditor() {
     canvas = document.getElementById('zoneCanvas');
@@ -103,7 +104,11 @@ function initZoneEditor() {
     // Wait for image to load to get dimensions
     img.onload = function() {
         updateCanvasSize();
-        loadSettings();
+        // Only load settings once on first image load
+        if (!settingsLoaded) {
+            loadSettings();
+            settingsLoaded = true;
+        }
     };
 
     // Handle window resize

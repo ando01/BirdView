@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 MODELS_DIR = "/models"
 BACKGROUND_INDEX = 964
 LABELS_CSV = "aiy_birds_V1_labelmap.csv"
+LABELS_TXT = "inat_bird_labels.txt"
 BIRDNAMES_DB = "birdnames.db"
 
 
@@ -41,6 +42,7 @@ class BirdClassifier:
         self._config = config
 
         self._labels = self._load_labels()
+        self._common_names = {}  # Maps scientific name to common name (for iNaturalist)
         self._birdnames_db = os.path.join(MODELS_DIR, BIRDNAMES_DB)
 
         logger.info(
@@ -53,8 +55,28 @@ class BirdClassifier:
         return self._using_edgetpu
 
     def _load_labels(self) -> dict:
-        """Load label map from CSV. Returns {index: scientific_name}."""
+        """Load label map from CSV or TXT. Returns {index: scientific_name}."""
         labels = {}
+
+        # Try iNaturalist TXT format first (for Edge TPU model)
+        txt_path = os.path.join(MODELS_DIR, LABELS_TXT)
+        if os.path.exists(txt_path):
+            with open(txt_path) as f:
+                for idx, line in enumerate(f):
+                    line = line.strip()
+                    if line:
+                        # Format: "Scientific Name (Common Name)"
+                        if '(' in line and ')' in line:
+                            scientific = line.split('(')[0].strip()
+                            common = line.split('(')[1].split(')')[0].strip()
+                            labels[idx] = scientific
+                            self._common_names[scientific] = common
+                        else:
+                            labels[idx] = line
+            logger.info("Loaded %d labels from %s (iNaturalist)", len(labels), LABELS_TXT)
+            return labels
+
+        # Fallback to AIY Birds V1 CSV format
         csv_path = os.path.join(MODELS_DIR, LABELS_CSV)
         if os.path.exists(csv_path):
             with open(csv_path) as f:
@@ -65,12 +87,18 @@ class BirdClassifier:
                         idx = int(row[0])
                         name = row[1].strip()
                         labels[idx] = name
-            logger.info("Loaded %d labels from %s", len(labels), LABELS_CSV)
+            logger.info("Loaded %d labels from %s (AIY Birds V1)", len(labels), LABELS_CSV)
         else:
-            logger.warning("Label map not found: %s", csv_path)
+            logger.warning("Label map not found: %s or %s", txt_path, csv_path)
+
         return labels
 
     def _get_common_name(self, scientific_name: str) -> str:
+        # First check if we have it from iNaturalist labels
+        if scientific_name in self._common_names:
+            return self._common_names[scientific_name]
+
+        # Fallback to birdnames database (for AIY Birds V1)
         if not os.path.exists(self._birdnames_db):
             return scientific_name
         try:

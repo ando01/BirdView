@@ -45,17 +45,20 @@ RUN curl -L -o /models/efficientdet_lite0.tflite \
 RUN curl -L -o /models/efficientdet_lite0_edgetpu.tflite \
     "https://raw.githubusercontent.com/google-coral/test_data/master/efficientdet_lite0_320_ptq_edgetpu.tflite"
 
-# Google Birds V1 classifier (CPU)
+# Google Birds V1 classifier (CPU) - fallback
 RUN curl -L -o /models/bird_classifier.tflite \
     "https://tfhub.dev/google/lite-model/aiy/vision/classifier/birds_V1/3?lite-format=tflite"
 
-# Google Birds V1 classifier (Edge TPU)
+# iNaturalist bird classifier (Edge TPU) - primary model
 RUN curl -L -o /models/bird_classifier_edgetpu.tflite \
-    "https://raw.githubusercontent.com/google-coral/test_data/master/aiy_birds_V1_3_224_quant_edgetpu.tflite"
+    "https://raw.githubusercontent.com/google-coral/test_data/master/mobilenet_v2_1.0_224_inat_bird_quant_edgetpu.tflite"
 
-# Bird species label map
+# Bird species label maps
 RUN curl -L -o /models/aiy_birds_V1_labelmap.csv \
     "https://www.gstatic.com/aihub/tfhub/labelmaps/aiy_birds_V1_labelmap.csv"
+
+RUN curl -L -o /models/inat_bird_labels.txt \
+    "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt"
 
 # COCO labels
 RUN curl -L -o /models/coco_labels.txt \

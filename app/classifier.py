@@ -40,10 +40,10 @@ class BirdClassifier:
         self._threshold = config.threshold
         self._db = db
         self._config = config
-
-        self._labels = self._load_labels()
         self._common_names = {}  # Maps scientific name to common name (for iNaturalist)
         self._birdnames_db = os.path.join(MODELS_DIR, BIRDNAMES_DB)
+
+        self._labels = self._load_labels()
 
         logger.info(
             "BirdClassifier ready (Edge TPU: %s, labels: %d species)",

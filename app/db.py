@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import sqlite3
@@ -41,6 +42,12 @@ class Database:
                 ON detections(scientific_name);
             CREATE INDEX IF NOT EXISTS idx_detections_date
                 ON detections(date(detection_time));
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
         """)
         conn.commit()
         conn.close()
@@ -201,3 +208,56 @@ class Database:
             return count
         finally:
             conn.close()
+
+    def get_setting(self, key: str, default=None):
+        """Get a single setting value. Returns default if not found."""
+        conn = self._get_conn()
+        try:
+            row = conn.execute(
+                "SELECT value FROM settings WHERE key = ?", (key,)
+            ).fetchone()
+            if row:
+                try:
+                    return json.loads(row["value"])
+                except (json.JSONDecodeError, TypeError):
+                    return row["value"]
+            return default
+        finally:
+            conn.close()
+
+    def get_all_settings(self) -> dict:
+        """Get all settings as a dictionary."""
+        conn = self._get_conn()
+        try:
+            rows = conn.execute("SELECT key, value FROM settings").fetchall()
+            settings = {}
+            for row in rows:
+                try:
+                    settings[row["key"]] = json.loads(row["value"])
+                except (json.JSONDecodeError, TypeError):
+                    settings[row["key"]] = row["value"]
+            return settings
+        finally:
+            conn.close()
+
+    def set_setting(self, key: str, value):
+        """Set a setting value. Value will be JSON-encoded if not a string."""
+        conn = self._get_conn()
+        try:
+            if not isinstance(value, str):
+                value = json.dumps(value)
+            conn.execute(
+                """
+                INSERT OR REPLACE INTO settings (key, value, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                """,
+                (key, value),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def update_settings(self, settings: dict):
+        """Update multiple settings at once."""
+        for key, value in settings.items():
+            self.set_setting(key, value)

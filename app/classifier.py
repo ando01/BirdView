@@ -28,7 +28,7 @@ class Classification:
 
 
 class BirdClassifier:
-    def __init__(self, config: ClassificationConfig):
+    def __init__(self, config: ClassificationConfig, db=None):
         cpu_path = os.path.join(MODELS_DIR, config.model)
         edgetpu_path = os.path.join(MODELS_DIR, config.edgetpu_model)
 
@@ -37,6 +37,8 @@ class BirdClassifier:
         self._output_details = self._interpreter.get_output_details()
         self._input_size = config.input_size
         self._threshold = config.threshold
+        self._db = db
+        self._config = config
 
         self._labels = self._load_labels()
         self._birdnames_db = os.path.join(MODELS_DIR, BIRDNAMES_DB)
@@ -105,6 +107,11 @@ class BirdClassifier:
 
     def classify(self, bird_crop: np.ndarray) -> Optional[Classification]:
         """Classify a cropped bird image. Returns None if below threshold."""
+        # Get dynamic threshold from database
+        threshold = self._threshold
+        if self._db:
+            threshold = self._db.get_setting("classification_threshold", self._threshold)
+
         processed = self._preprocess(bird_crop)
         input_data = np.expand_dims(processed, axis=0).astype(np.uint8)
 
@@ -125,7 +132,7 @@ class BirdClassifier:
 
         if top_index == BACKGROUND_INDEX:
             return None
-        if top_score < self._threshold:
+        if top_score < threshold:
             return None
 
         scientific_name = self._labels.get(top_index, f"Unknown ({top_index})")

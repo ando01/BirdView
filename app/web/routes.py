@@ -168,3 +168,51 @@ def register_routes(app: Flask):
             werkzeug_logger.addFilter(werkzeug_filter)
 
         return jsonify({"filter_internal_ips": not is_active})
+
+    @app.route("/settings")
+    def settings():
+        return render_template("settings.html")
+
+    @app.route("/api/settings")
+    def api_settings():
+        db = current_app.config["db"]
+        app_config = current_app.config["app_config"]
+
+        # Get settings from database, fall back to config defaults
+        bird_confidence = db.get_setting("bird_confidence", app_config.detection.bird_confidence)
+        classification_threshold = db.get_setting("classification_threshold", app_config.classification.threshold)
+        detection_zones = db.get_setting("detection_zones", [])
+
+        return jsonify({
+            "bird_confidence": bird_confidence,
+            "classification_threshold": classification_threshold,
+            "detection_zones": detection_zones,
+        })
+
+    @app.route("/api/settings", methods=["POST"])
+    def api_settings_update():
+        db = current_app.config["db"]
+        data = request.get_json()
+
+        if "bird_confidence" in data:
+            value = float(data["bird_confidence"])
+            if 0 <= value <= 1:
+                db.set_setting("bird_confidence", value)
+            else:
+                return jsonify({"error": "bird_confidence must be between 0 and 1"}), 400
+
+        if "classification_threshold" in data:
+            value = float(data["classification_threshold"])
+            if 0 <= value <= 1:
+                db.set_setting("classification_threshold", value)
+            else:
+                return jsonify({"error": "classification_threshold must be between 0 and 1"}), 400
+
+        if "detection_zones" in data:
+            zones = data["detection_zones"]
+            if isinstance(zones, list):
+                db.set_setting("detection_zones", zones)
+            else:
+                return jsonify({"error": "detection_zones must be an array"}), 400
+
+        return jsonify({"success": True})

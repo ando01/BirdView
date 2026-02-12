@@ -90,8 +90,8 @@ def main():
 
     # ML models
     try:
-        detector = BirdDetector(config.detection)
-        classifier = BirdClassifier(config.classification)
+        detector = BirdDetector(config.detection, db=db)
+        classifier = BirdClassifier(config.classification, db=db)
     except Exception as e:
         logger.error("Failed to load ML models: %s", e)
         sys.exit(1)

@@ -49,6 +49,10 @@ RUN curl -L -o /models/efficientdet_lite0_edgetpu.tflite \
 RUN curl -L -o /models/bird_classifier.tflite \
     "https://tfhub.dev/google/lite-model/aiy/vision/classifier/birds_V1/3?lite-format=tflite"
 
+# Google Birds V1 classifier (Edge TPU)
+RUN curl -L -o /models/bird_classifier_edgetpu.tflite \
+    "https://raw.githubusercontent.com/google-coral/test_data/master/aiy_birds_V1_3_224_quant_edgetpu.tflite"
+
 # Bird species label map
 RUN curl -L -o /models/aiy_birds_V1_labelmap.csv \
     "https://www.gstatic.com/aihub/tfhub/labelmaps/aiy_birds_V1_labelmap.csv"

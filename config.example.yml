@@ -1,43 +1,31 @@
-camera:
-  # Required: your camera's RTSP stream URL
-  rtsp_url: rtsp://username:password@192.168.1.100:7447/stream
-  # How many frames per second to run ML detection on (1-5 is reasonable)
-  detection_fps: 2
-  # Rolling frame buffer for video clip extraction (seconds)
-  buffer_seconds: 60
-
-motion:
-  # Use motion detection as a pre-filter to skip idle frames
-  enabled: true
-  # Minimum contour area (pixels) to count as motion
-  min_area: 500
-
-detection:
-  # COCO object detection model (ships with container)
-  model: efficientdet_lite0.tflite
-  # Edge TPU compiled version (used automatically when Coral TPU detected)
-  edgetpu_model: efficientdet_lite0_edgetpu.tflite
-  # Minimum confidence to consider something a bird
-  bird_confidence: 0.5
+frigate:
+  # Required: Frigate NVR IP or hostname
+  host: 192.168.1.x
+  # Frigate web/API port (default: 5000)
+  port: 5000
+  # Camera names from your Frigate config to watch (empty = all cameras)
+  cameras:
+    - backyard
+  # Timeout in seconds for Frigate API requests
+  api_timeout: 10
+  # true = classify on first snapshot (eager); false = wait for event end (recommended)
+  process_on_snapshot: false
+  # Download video clips from Frigate after each event
+  download_clips: true
+  # Seconds to wait before downloading the clip (gives Frigate time to finalize)
+  clip_download_delay: 5
 
 classification:
   # Google birds_V1/3 species classifier (ships with container)
   model: bird_classifier.tflite
-  # Edge TPU compiled version
+  # Edge TPU compiled version (used automatically when Coral TPU detected)
   edgetpu_model: bird_classifier_edgetpu.tflite
   # Minimum confidence to accept a species identification
   threshold: 0.7
 
-tracker:
-  # Consecutive frames without bird before ending an event (~5s at 2fps)
-  max_missing_frames: 10
-  # Minimum bounding box overlap to match detection to tracked bird
-  iou_threshold: 0.3
-
 storage:
   # Directory for snapshots, thumbnails, and video clips
   # Default: /media (mapped to ./media on host via docker-compose.yml)
-  # For NAS storage, see docker-compose.yml for setup instructions.
   media_dir: /media
   # Directory for SQLite database (local storage recommended for performance)
   data_dir: /data
@@ -46,19 +34,7 @@ storage:
   # JPEG quality for snapshots (1-100)
   snapshot_quality: 95
 
-clips:
-  # Record short video clips of each bird visit
-  enabled: true
-  # Seconds of video to include before bird was detected
-  pre_capture: 3
-  # Seconds of video to include after bird leaves
-  post_capture: 2
-  # Output clip FPS (should match your camera's native FPS)
-  fps: 15
-  # Maximum clip length in seconds (safety cap)
-  max_duration: 60
-
-# MQTT integration for Home Assistant (optional - remove this section to disable)
+# MQTT is required for Frigate event subscription
 mqtt:
   broker: 192.168.1.x
   port: 1883

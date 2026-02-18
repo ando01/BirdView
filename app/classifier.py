@@ -9,9 +9,39 @@ import cv2
 import numpy as np
 
 from app.config import ClassificationConfig
-from app.edgetpu import create_interpreter
 
 logger = logging.getLogger(__name__)
+
+
+def _create_interpreter(cpu_model_path: str, edgetpu_model_path: str):
+    """Create TFLite interpreter, preferring Edge TPU if available."""
+    try:
+        import tflite_runtime.interpreter as tflite
+    except ImportError:
+        import tensorflow.lite as tflite
+
+    apex_exists = os.path.exists("/dev/apex_0")
+    usb_exists = os.path.exists("/dev/bus/usb")
+
+    if (apex_exists or usb_exists) and os.path.exists(edgetpu_model_path):
+        try:
+            delegate = tflite.load_delegate("libedgetpu.so.1")
+            interp = tflite.Interpreter(
+                model_path=edgetpu_model_path,
+                experimental_delegates=[delegate],
+            )
+            interp.allocate_tensors()
+            logger.info("Classifier loaded on Edge TPU: %s", os.path.basename(edgetpu_model_path))
+            return interp, True
+        except (ValueError, RuntimeError) as e:
+            logger.warning("Edge TPU load failed, falling back to CPU: %s", e)
+
+    if not os.path.exists(cpu_model_path):
+        raise FileNotFoundError(f"Classifier model not found: {cpu_model_path}")
+    interp = tflite.Interpreter(model_path=cpu_model_path)
+    interp.allocate_tensors()
+    logger.info("Classifier loaded on CPU: %s", os.path.basename(cpu_model_path))
+    return interp, False
 
 MODELS_DIR = "/models"
 BACKGROUND_INDEX = 964
@@ -33,7 +63,7 @@ class BirdClassifier:
         cpu_path = os.path.join(MODELS_DIR, config.model)
         edgetpu_path = os.path.join(MODELS_DIR, config.edgetpu_model)
 
-        self._interpreter, self._using_edgetpu = create_interpreter(cpu_path, edgetpu_path)
+        self._interpreter, self._using_edgetpu = _create_interpreter(cpu_path, edgetpu_path)
         self._input_details = self._interpreter.get_input_details()
         self._output_details = self._interpreter.get_output_details()
         self._input_size = config.input_size

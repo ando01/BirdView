@@ -2,7 +2,7 @@ FROM python:3.9-slim-bullseye
 
 WORKDIR /app
 
-# System dependencies for OpenCV, video encoding, and Coral TPU
+# System dependencies for OpenCV and Coral TPU
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg \
@@ -12,7 +12,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     libxrender1 \
     libusb-1.0-0 \
-    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Add Google Coral Edge TPU repository
@@ -34,17 +33,9 @@ RUN pip install --no-cache-dir \
     tflite-runtime~=2.5
 
 # Create directories
-RUN mkdir -p /config /data /media /models /tmp/clips
+RUN mkdir -p /config /data /media /models
 
 # Download models
-# EfficientDet-Lite0 - COCO object detection (CPU)
-RUN curl -L -o /models/efficientdet_lite0.tflite \
-    "https://storage.googleapis.com/tfhub-lite-models/tensorflow/lite-model/efficientdet/lite0/detection/metadata/1.tflite"
-
-# EfficientDet-Lite0 - Edge TPU compiled
-RUN curl -L -o /models/efficientdet_lite0_edgetpu.tflite \
-    "https://raw.githubusercontent.com/google-coral/test_data/master/efficientdet_lite0_320_ptq_edgetpu.tflite"
-
 # Google Birds V1 classifier (CPU) - fallback
 RUN curl -L -o /models/bird_classifier.tflite \
     "https://tfhub.dev/google/lite-model/aiy/vision/classifier/birds_V1/3?lite-format=tflite"
@@ -59,10 +50,6 @@ RUN curl -L -o /models/aiy_birds_V1_labelmap.csv \
 
 RUN curl -L -o /models/inat_bird_labels.txt \
     "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt"
-
-# COCO labels
-RUN curl -L -o /models/coco_labels.txt \
-    "https://raw.githubusercontent.com/google-coral/test_data/master/coco_labels.txt"
 
 # Copy application code
 COPY app/ ./app/

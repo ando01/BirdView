@@ -9,30 +9,6 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class CameraConfig:
-    rtsp_url: str
-    detection_fps: float = 2.0
-    buffer_seconds: int = 60
-    reconnect_delay: float = 5.0
-    max_reconnect_delay: float = 60.0
-
-
-@dataclass
-class MotionConfig:
-    enabled: bool = True
-    min_area: int = 500
-    history: int = 50
-
-
-@dataclass
-class DetectionConfig:
-    model: str = "efficientdet_lite0.tflite"
-    edgetpu_model: str = "efficientdet_lite0_edgetpu.tflite"
-    bird_confidence: float = 0.5
-    input_size: int = 320
-
-
-@dataclass
 class ClassificationConfig:
     model: str = "bird_classifier.tflite"
     edgetpu_model: str = "bird_classifier_edgetpu.tflite"
@@ -41,9 +17,14 @@ class ClassificationConfig:
 
 
 @dataclass
-class TrackerConfig:
-    max_missing_frames: int = 10
-    iou_threshold: float = 0.3
+class FrigateConfig:
+    host: str = "localhost"
+    port: int = 5000
+    cameras: list = field(default_factory=list)  # empty = all cameras
+    api_timeout: int = 10
+    process_on_snapshot: bool = False  # True = classify on first snapshot, not event end
+    download_clips: bool = True
+    clip_download_delay: int = 5       # seconds to wait before fetching clip
 
 
 @dataclass
@@ -52,15 +33,6 @@ class StorageConfig:
     data_dir: str = "/data"
     retention_days: int = 30
     snapshot_quality: int = 95
-
-
-@dataclass
-class ClipConfig:
-    enabled: bool = True
-    pre_capture: int = 3
-    post_capture: int = 2
-    fps: int = 15
-    max_duration: int = 60
 
 
 @dataclass
@@ -86,13 +58,9 @@ class LoggingConfig:
 
 @dataclass
 class AppConfig:
-    camera: CameraConfig
-    motion: MotionConfig = field(default_factory=MotionConfig)
-    detection: DetectionConfig = field(default_factory=DetectionConfig)
+    frigate: FrigateConfig
     classification: ClassificationConfig = field(default_factory=ClassificationConfig)
-    tracker: TrackerConfig = field(default_factory=TrackerConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)
-    clips: ClipConfig = field(default_factory=ClipConfig)
     mqtt: Optional[MQTTConfig] = None
     web: WebConfig = field(default_factory=WebConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
@@ -114,17 +82,13 @@ def load_config(path: str = "/config/config.yml") -> AppConfig:
     with open(path) as f:
         raw = yaml.safe_load(f) or {}
 
-    camera_raw = raw.get("camera", {})
-    if not camera_raw or not camera_raw.get("rtsp_url"):
-        raise ValueError("camera.rtsp_url is required in config.yml")
+    frigate_raw = raw.get("frigate", {})
+    if not frigate_raw or not frigate_raw.get("host"):
+        raise ValueError("frigate.host is required in config.yml")
+    frigate = _build_dataclass(FrigateConfig, frigate_raw)
 
-    camera = _build_dataclass(CameraConfig, camera_raw)
-    motion = _build_dataclass(MotionConfig, raw.get("motion"))
-    detection = _build_dataclass(DetectionConfig, raw.get("detection"))
     classification = _build_dataclass(ClassificationConfig, raw.get("classification"))
-    tracker = _build_dataclass(TrackerConfig, raw.get("tracker"))
     storage = _build_dataclass(StorageConfig, raw.get("storage"))
-    clips = _build_dataclass(ClipConfig, raw.get("clips"))
     web = _build_dataclass(WebConfig, raw.get("web"))
     logging_cfg = _build_dataclass(LoggingConfig, raw.get("logging"))
 
@@ -135,34 +99,19 @@ def load_config(path: str = "/config/config.yml") -> AppConfig:
             mqtt = _build_dataclass(MQTTConfig, mqtt_raw)
 
     config = AppConfig(
-        camera=camera,
-        motion=motion,
-        detection=detection,
+        frigate=frigate,
         classification=classification,
-        tracker=tracker,
         storage=storage,
-        clips=clips,
         mqtt=mqtt,
         web=web,
         logging=logging_cfg,
     )
 
     logger.info("Configuration loaded from %s", path)
-    logger.info("  RTSP URL: %s", _redact_url(config.camera.rtsp_url))
-    logger.info("  Detection FPS: %s", config.camera.detection_fps)
-    logger.info("  Coral TPU models: %s / %s", config.detection.edgetpu_model, config.classification.edgetpu_model)
+    logger.info("  Frigate host: %s:%d", config.frigate.host, config.frigate.port)
+    logger.info("  Frigate cameras: %s", config.frigate.cameras or "all")
+    logger.info("  Classifier model: %s", config.classification.edgetpu_model)
     logger.info("  MQTT: %s", "enabled" if config.mqtt else "disabled")
-    logger.info("  Clips: %s", "enabled" if config.clips.enabled else "disabled")
     logger.info("  Media dir: %s", config.storage.media_dir)
 
     return config
-
-
-def _redact_url(url: str) -> str:
-    """Redact password from RTSP URL for logging."""
-    if "@" in url:
-        prefix, rest = url.split("@", 1)
-        if ":" in prefix:
-            scheme_user = prefix.rsplit(":", 1)[0]
-            return f"{scheme_user}:****@{rest}"
-    return url

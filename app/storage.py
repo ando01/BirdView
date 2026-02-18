@@ -25,6 +25,14 @@ class ImageStorage:
         os.makedirs(d, exist_ok=True)
         return d
 
+    def save_snapshot_bytes(self, event_id: str, jpeg_bytes: bytes, dt: datetime = None) -> str:
+        date_dir = self._date_dir(dt)
+        filename = f"{event_id}_snapshot.jpg"
+        path = os.path.join(date_dir, filename)
+        with open(path, "wb") as f:
+            f.write(jpeg_bytes)
+        return os.path.relpath(path, self._base_dir)
+
     def save_snapshot(self, event_id: str, frame: np.ndarray, dt: datetime = None) -> str:
         date_dir = self._date_dir(dt)
         filename = f"{event_id}_snapshot.jpg"

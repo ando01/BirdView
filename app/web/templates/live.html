@@ -5,11 +5,11 @@
 <div class="row">
     <div class="col-lg-9 mb-3">
         <div class="bg-dark rounded overflow-hidden text-center">
-            <img id="liveStream" src="/video_feed" class="img-fluid" alt="Live Stream"
+            <img id="liveStream" src="" class="img-fluid d-none" alt="Live Stream"
                  style="max-height: 75vh;">
-            <div id="streamOffline" class="d-none text-light py-5">
-                <h4>Camera Offline</h4>
-                <p class="text-muted">Waiting for stream connection...</p>
+            <div id="streamOffline" class="text-light py-5">
+                <h4>Frigate Offline</h4>
+                <p class="text-muted">Waiting for Frigate connection...</p>
             </div>
         </div>
     </div>
@@ -18,16 +18,11 @@
             <div class="card-header">Status</div>
             <div class="card-body">
                 <div class="mb-3">
-                    <small class="text-muted">Camera</small>
+                    <small class="text-muted">Frigate</small>
                     <div>
                         <span id="liveDot" class="status-dot status-offline"></span>
                         <span id="liveConnText">Offline</span>
-                        <span id="liveFps" class="text-muted ms-2"></span>
                     </div>
-                </div>
-                <div class="mb-3">
-                    <small class="text-muted">Detection</small>
-                    <div id="liveDetectionStatus" class="text-muted">Idle</div>
                 </div>
                 <div class="mb-3">
                     <small class="text-muted">Events Today</small>
@@ -49,38 +44,41 @@
 
 {% block scripts %}
 <script>
+    let streamUrlsLoaded = false;
+
+    function loadStreamUrls() {
+        if (streamUrlsLoaded) return;
+        fetch('/api/frigate_stream_urls')
+            .then(r => r.json())
+            .then(data => {
+                streamUrlsLoaded = true;
+                const stream = document.getElementById('liveStream');
+                const cameras = data.cameras;
+                if (cameras && cameras.length > 0) {
+                    stream.src = data.mjpeg_base + '/' + cameras[0];
+                    stream.classList.remove('d-none');
+                    document.getElementById('streamOffline').classList.add('d-none');
+                }
+            })
+            .catch(() => {});
+    }
+
     function updateLiveStatus() {
         fetch('/api/stream_status')
             .then(r => r.json())
             .then(data => {
                 const dot = document.getElementById('liveDot');
                 const connText = document.getElementById('liveConnText');
-                const fps = document.getElementById('liveFps');
-                const stream = document.getElementById('liveStream');
-                const offline = document.getElementById('streamOffline');
-                const detStatus = document.getElementById('liveDetectionStatus');
                 const eventsEl = document.getElementById('liveEventsToday');
                 const lastDet = document.getElementById('lastDetectionInfo');
 
-                if (data.camera_connected) {
+                if (data.frigate_connected) {
                     dot.className = 'status-dot status-online';
                     connText.textContent = 'Connected';
-                    fps.textContent = data.camera_fps.toFixed(0) + ' FPS';
-                    stream.classList.remove('d-none');
-                    offline.classList.add('d-none');
+                    loadStreamUrls();
                 } else {
                     dot.className = 'status-dot status-offline';
                     connText.textContent = 'Offline';
-                    fps.textContent = '';
-                    stream.classList.add('d-none');
-                    offline.classList.remove('d-none');
-                }
-
-                if (data.detecting) {
-                    detStatus.innerHTML = '<span class="text-success">Active</span> &mdash; ' +
-                        data.active_birds + ' bird' + (data.active_birds !== 1 ? 's' : '') + ' tracked';
-                } else {
-                    detStatus.textContent = 'Idle';
                 }
 
                 eventsEl.textContent = data.events_today;

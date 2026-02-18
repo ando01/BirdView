@@ -1,12 +1,12 @@
 import json
 import logging
 import threading
+from datetime import datetime
 from typing import Optional
 
 import paho.mqtt.client as mqtt
 
 from app.config import MQTTConfig, WebConfig
-from app.tracker import TrackedBird
 
 logger = logging.getLogger(__name__)
 
@@ -68,24 +68,27 @@ class MQTTPublisher:
         if self._connected:
             self._client.publish(topic, payload, qos=1, retain=retain)
 
-    def publish_detection(self, event: TrackedBird, snapshot_path: Optional[str]):
+    def publish_detection(
+        self,
+        event_id: str,
+        classification,
+        detection_time: datetime,
+        duration: float,
+        detection_confidence: float,
+        snapshot_path: Optional[str],
+    ):
         """Publish a bird detection event."""
         if not self._connected:
             return
 
-        cls = event.best_classification
-        if cls is None:
-            return
-
-        duration = (event.last_seen - event.first_seen).total_seconds()
         prefix = self._config.topic_prefix
 
         payload = {
-            "event_id": event.event_id,
-            "common_name": cls.common_name,
-            "scientific_name": cls.scientific_name,
-            "score": round(cls.score, 3),
-            "detection_time": event.first_seen.isoformat(),
+            "event_id": event_id,
+            "common_name": classification.common_name,
+            "scientific_name": classification.scientific_name,
+            "score": round(classification.score, 3),
+            "detection_time": detection_time.isoformat(),
             "duration_seconds": round(duration, 1),
         }
 
@@ -103,10 +106,10 @@ class MQTTPublisher:
         self._publish(
             f"{prefix}/last_bird",
             json.dumps({
-                "common_name": cls.common_name,
-                "scientific_name": cls.scientific_name,
-                "score": round(cls.score, 3),
-                "time": event.first_seen.strftime("%H:%M:%S"),
+                "common_name": classification.common_name,
+                "scientific_name": classification.scientific_name,
+                "score": round(classification.score, 3),
+                "time": detection_time.strftime("%H:%M:%S"),
             }),
             retain=True,
         )

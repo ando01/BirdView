@@ -10,17 +10,6 @@
             </div>
             <div class="card-body">
                 <div class="mb-4">
-                    <label for="birdConfidence" class="form-label">
-                        Bird Detection Confidence: <strong id="birdConfidenceValue">0.50</strong>
-                    </label>
-                    <input type="range" class="form-range" id="birdConfidence"
-                           min="0" max="100" value="50" step="1">
-                    <small class="text-muted">
-                        Minimum confidence to detect a bird (lower = more sensitive, more false positives)
-                    </small>
-                </div>
-
-                <div class="mb-4">
                     <label for="classificationThreshold" class="form-label">
                         Species Classification Threshold: <strong id="classificationThresholdValue">0.70</strong>
                     </label>
@@ -43,39 +32,6 @@
             </div>
         </div>
     </div>
-
-    <div class="col-lg-6 mb-4">
-        <div class="card bg-dark text-white">
-            <div class="card-header">
-                <h5 class="mb-0">Detection Zone</h5>
-            </div>
-            <div class="card-body">
-                <p class="text-muted small mb-3">
-                    Click on the video to draw a polygon. Detections outside this zone will be ignored.
-                    Click near the first point to close the polygon.
-                </p>
-                <div style="position: relative; max-width: 100%;">
-                    <img id="zoneImage" src="/video_feed"
-                         style="width: 100%; height: auto; display: block; cursor: crosshair;">
-                    <canvas id="zoneCanvas"
-                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
-                    </canvas>
-                </div>
-                <div class="mt-3 d-flex gap-2">
-                    <button class="btn btn-success btn-sm" onclick="saveZone()">
-                        Save Zone
-                    </button>
-                    <button class="btn btn-warning btn-sm" onclick="clearZone()">
-                        Clear Zone
-                    </button>
-                    <button class="btn btn-secondary btn-sm" onclick="undoPoint()">
-                        Undo Point
-                    </button>
-                </div>
-                <div id="zoneAlert" class="alert mt-3 d-none" role="alert"></div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <style>
@@ -90,162 +46,13 @@
 
 {% block scripts %}
 <script>
-let zonePoints = [];
-let canvas, ctx, img;
-let imgNaturalWidth = 1920;
-let imgNaturalHeight = 1080;
-let settingsLoaded = false;
-
-function initZoneEditor() {
-    canvas = document.getElementById('zoneCanvas');
-    ctx = canvas.getContext('2d');
-    img = document.getElementById('zoneImage');
-
-    // Wait for image to load to get dimensions
-    img.onload = function() {
-        updateCanvasSize();
-        // Only load settings once on first image load
-        if (!settingsLoaded) {
-            loadSettings();
-            settingsLoaded = true;
-        }
-    };
-
-    // Handle window resize
-    window.addEventListener('resize', updateCanvasSize);
-
-    // Click handler for drawing polygon
-    img.addEventListener('click', function(e) {
-        const rect = img.getBoundingClientRect();
-        const x = (e.clientX - rect.left) / rect.width;
-        const y = (e.clientY - rect.top) / rect.height;
-
-        // Check if clicking near first point to close polygon
-        if (zonePoints.length > 2) {
-            const firstPoint = zonePoints[0];
-            const distance = Math.sqrt(Math.pow(x - firstPoint.x, 2) + Math.pow(y - firstPoint.y, 2));
-            if (distance < 0.03) {
-                // Close polygon
-                drawZone();
-                return;
-            }
-        }
-
-        zonePoints.push({x, y});
-        drawZone();
-    });
-}
-
-function updateCanvasSize() {
-    const rect = img.getBoundingClientRect();
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-
-    // Try to get natural dimensions from a snapshot
-    fetch('/video_feed')
-        .then(() => {
-            // Video feed doesn't give us dimensions, use defaults or detect from actual frame
-            drawZone();
-        });
-
-    drawZone();
-}
-
-function drawZone() {
-    const rect = img.getBoundingClientRect();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (zonePoints.length === 0) return;
-
-    // Draw polygon
-    ctx.beginPath();
-    ctx.strokeStyle = '#00ff00';
-    ctx.lineWidth = 2;
-    ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
-
-    zonePoints.forEach((point, i) => {
-        const x = point.x * canvas.width;
-        const y = point.y * canvas.height;
-        if (i === 0) {
-            ctx.moveTo(x, y);
-        } else {
-            ctx.lineTo(x, y);
-        }
-    });
-
-    if (zonePoints.length > 2) {
-        ctx.closePath();
-        ctx.fill();
-    }
-    ctx.stroke();
-
-    // Draw points
-    zonePoints.forEach((point, i) => {
-        const x = point.x * canvas.width;
-        const y = point.y * canvas.height;
-        ctx.beginPath();
-        ctx.arc(x, y, 5, 0, 2 * Math.PI);
-        ctx.fillStyle = i === 0 ? '#ff0000' : '#00ff00';
-        ctx.fill();
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-    });
-}
-
-function clearZone() {
-    zonePoints = [];
-    drawZone();
-    showZoneAlert('Zone cleared. Click Save Zone to apply.', 'warning');
-}
-
-function undoPoint() {
-    if (zonePoints.length > 0) {
-        zonePoints.pop();
-        drawZone();
-    }
-}
-
-function saveZone() {
-    fetch('/api/settings', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            detection_zones: zonePoints
-        })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showZoneAlert('Detection zone saved successfully!', 'success');
-        } else {
-            showZoneAlert('Error: ' + (data.error || 'Unknown error'), 'danger');
-        }
-    })
-    .catch(err => {
-        showZoneAlert('Failed to save zone: ' + err.message, 'danger');
-    });
-}
-
 function loadSettings() {
     fetch('/api/settings')
         .then(r => r.json())
         .then(data => {
-            // Update sliders
-            const birdConf = Math.round(data.bird_confidence * 100);
             const classThresh = Math.round(data.classification_threshold * 100);
-
-            document.getElementById('birdConfidence').value = birdConf;
-            document.getElementById('birdConfidenceValue').textContent = (birdConf / 100).toFixed(2);
-
             document.getElementById('classificationThreshold').value = classThresh;
             document.getElementById('classificationThresholdValue').textContent = (classThresh / 100).toFixed(2);
-
-            // Load detection zones
-            if (data.detection_zones && data.detection_zones.length > 0) {
-                zonePoints = data.detection_zones;
-                drawZone();
-            }
         })
         .catch(err => {
             showSettingsAlert('Failed to load settings: ' + err.message, 'danger');
@@ -253,14 +60,12 @@ function loadSettings() {
 }
 
 function saveSettings() {
-    const birdConfidence = parseInt(document.getElementById('birdConfidence').value) / 100;
     const classificationThreshold = parseInt(document.getElementById('classificationThreshold').value) / 100;
 
     fetch('/api/settings', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-            bird_confidence: birdConfidence,
             classification_threshold: classificationThreshold
         })
     })
@@ -285,26 +90,12 @@ function showSettingsAlert(message, type) {
     setTimeout(() => alert.classList.add('d-none'), 3000);
 }
 
-function showZoneAlert(message, type) {
-    const alert = document.getElementById('zoneAlert');
-    alert.className = `alert alert-${type} mt-3`;
-    alert.textContent = message;
-    alert.classList.remove('d-none');
-    setTimeout(() => alert.classList.add('d-none'), 3000);
-}
-
-// Update slider value displays
-document.getElementById('birdConfidence').addEventListener('input', function(e) {
-    document.getElementById('birdConfidenceValue').textContent = (e.target.value / 100).toFixed(2);
-});
-
 document.getElementById('classificationThreshold').addEventListener('input', function(e) {
     document.getElementById('classificationThresholdValue').textContent = (e.target.value / 100).toFixed(2);
 });
 
-// Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    initZoneEditor();
+    loadSettings();
 });
 </script>
 {% endblock %}

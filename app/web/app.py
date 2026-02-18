@@ -2,10 +2,10 @@ import logging
 
 from flask import Flask
 
-from app.camera import CameraStream
 from app.config import AppConfig
 from app.db import Database
-from app.pipeline import DetectionPipeline
+from app.frigate import FrigateConsumer
+from app.pipeline import FrigatePipeline
 from app.storage import ImageStorage
 from app.web.filters import register_filters
 from app.web.routes import register_routes
@@ -15,8 +15,8 @@ def create_app(
     db: Database,
     storage: ImageStorage,
     config: AppConfig,
-    camera: CameraStream,
-    pipeline: DetectionPipeline,
+    consumer: FrigateConsumer,
+    pipeline: FrigatePipeline,
     werkzeug_filter: logging.Filter = None,
 ) -> Flask:
     app = Flask(
@@ -28,7 +28,7 @@ def create_app(
     app.config["db"] = db
     app.config["storage"] = storage
     app.config["app_config"] = config
-    app.config["camera"] = camera
+    app.config["consumer"] = consumer
     app.config["pipeline"] = pipeline
     app.config["werkzeug_filter"] = werkzeug_filter
 

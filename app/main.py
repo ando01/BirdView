@@ -7,18 +7,14 @@ import sys
 import threading
 import time
 
-from app.camera import CameraStream
 from app.classifier import BirdClassifier
-from app.clip import ClipEncoder
 from app.config import load_config
 from app.db import Database
-from app.detector import BirdDetector
+from app.frigate import FrigateClient, FrigateConsumer
 from app.log_buffer import log_buffer
-from app.motion import MotionDetector
 from app.mqtt import MQTTPublisher
-from app.pipeline import DetectionPipeline
+from app.pipeline import FrigatePipeline
 from app.storage import ImageStorage
-from app.tracker import EventTracker
 from app.web.app import create_app
 
 logging.basicConfig(
@@ -75,6 +71,10 @@ def main():
         logger.error("Configuration error: %s", e)
         sys.exit(1)
 
+    if not config.mqtt:
+        logger.error("MQTT configuration is required for Frigate event subscription")
+        sys.exit(1)
+
     # Configure werkzeug log filtering
     werkzeug_logger = logging.getLogger("werkzeug")
     if config.logging.filter_internal_ips:
@@ -88,58 +88,47 @@ def main():
     # Media storage
     storage = ImageStorage(config.storage.media_dir, config.storage.snapshot_quality)
 
-    # ML models
+    # ML classifier
     try:
-        detector = BirdDetector(config.detection, db=db)
         classifier = BirdClassifier(config.classification, db=db)
     except Exception as e:
-        logger.error("Failed to load ML models: %s", e)
+        logger.error("Failed to load classifier model: %s", e)
         sys.exit(1)
 
-    # Camera
-    camera = CameraStream(config.camera)
+    # Frigate client
+    frigate_client = FrigateClient(config.frigate)
 
-    # Motion detector
-    motion = MotionDetector(config.motion) if config.motion.enabled else None
-
-    # Event tracker
-    tracker = EventTracker(config.tracker)
-
-    # Clip encoder
-    clip_encoder = None
-    if config.clips.enabled:
-        clip_encoder = ClipEncoder(config.clips)
-
-    # MQTT
-    mqtt_pub = None
-    if config.mqtt:
-        mqtt_pub = MQTTPublisher(config.mqtt, config.web)
+    # MQTT publisher
+    mqtt_pub = MQTTPublisher(config.mqtt, config.web)
 
     # Event callback for MQTT
-    def on_event_complete(event, snapshot_path):
-        if mqtt_pub:
-            mqtt_pub.publish_detection(event, snapshot_path)
+    def on_event_complete(event_id, classification, detection_time, duration,
+                          detection_confidence, snapshot_path):
+        mqtt_pub.publish_detection(
+            event_id=event_id,
+            classification=classification,
+            detection_time=detection_time,
+            duration=duration,
+            detection_confidence=detection_confidence,
+            snapshot_path=snapshot_path,
+        )
 
-    # Detection pipeline
-    pipeline = DetectionPipeline(
+    # Frigate pipeline
+    pipeline = FrigatePipeline(
         config=config,
-        camera=camera,
-        motion=motion,
-        detector=detector,
+        frigate_client=frigate_client,
         classifier=classifier,
-        tracker=tracker,
         db=db,
         storage=storage,
-        clip_encoder=clip_encoder,
         on_event_complete=on_event_complete,
     )
 
-    # Start threads
-    camera.start()
-    pipeline.start()
+    # Frigate consumer (subscribes to MQTT frigate/events)
+    consumer = FrigateConsumer(config.frigate, config.mqtt, pipeline.process_event)
 
-    if mqtt_pub:
-        mqtt_pub.start()
+    # Start threads
+    consumer.start()
+    mqtt_pub.start()
 
     # Cleanup scheduler
     cleanup_thread = threading.Thread(
@@ -152,10 +141,8 @@ def main():
     # Graceful shutdown
     def shutdown(signum, frame):
         logger.info("Shutting down...")
-        pipeline.stop()
-        camera.stop()
-        if mqtt_pub:
-            mqtt_pub.stop()
+        consumer.stop()
+        mqtt_pub.stop()
         sys.exit(0)
 
     signal.signal(signal.SIGTERM, shutdown)
@@ -163,7 +150,7 @@ def main():
 
     # Flask web server (blocking, runs in main thread)
     logger.info("Starting web server on %s:%d", config.web.host, config.web.port)
-    flask_app = create_app(db, storage, config, camera, pipeline, werkzeug_filter)
+    flask_app = create_app(db, storage, config, consumer, pipeline, werkzeug_filter)
     flask_app.run(
         host=config.web.host,
         port=config.web.port,

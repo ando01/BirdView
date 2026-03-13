@@ -1,54 +1,18 @@
-# BirdFeeder — edit the values marked EDIT below, then:
-#
-#   Static IP:  docker compose --profile static up -d
-#   DHCP:       docker compose --profile dhcp up -d
-#
-# To find your host's network interface:  ip route show default
-# To find your LAN subnet/gateway:        ip route show default
-
-x-birdfeeder: &birdfeeder-base
-  image: ghcr.io/ando01/birdview:latest
-  container_name: birdfeeder
-  restart: unless-stopped
-  volumes:
-    - ./config:/config
-    - ./data:/data
-    - ./media:/media
-  devices:
-    - /dev/bus/usb:/dev/bus/usb    # USB Coral TPU — remove this line if you don't have one
-  environment:
-    - TZ=America/New_York          # EDIT: your timezone
-
 services:
-
-  birdfeeder-static:
-    <<: *birdfeeder-base
-    profiles: [static]
-    networks:
-      lan_static:
-        ipv4_address: 192.168.1.100  # EDIT: desired IP for this container
-
-  birdfeeder-dhcp:
-    <<: *birdfeeder-base
-    profiles: [dhcp]
-    networks:
-      - lan_dhcp
-
-networks:
-
-  lan_static:
-    driver: macvlan
-    driver_opts:
-      parent: eth0               # EDIT: your host's network interface (ens18, enp3s0, etc.)
-    ipam:
-      config:
-        - subnet: 192.168.1.0/24 # EDIT: your LAN subnet
-          gateway: 192.168.1.1   # EDIT: your router IP
-
-  lan_dhcp:
-    driver: macvlan
-    driver_opts:
-      parent: eth0               # EDIT: same interface as above
+  birdfeeder:
+    image: ghcr.io/ando01/birdview:latest
+    container_name: birdfeeder
+    restart: unless-stopped
+    ports:
+      - "7766:7766"        # EDIT: change the left number to use a different host port
+    volumes:
+      - ./config:/config
+      - ./data:/data
+      - ./media:/media
+    devices:
+      - /dev/bus/usb:/dev/bus/usb    # USB Coral TPU — remove this line if you don't have one
+    environment:
+      - TZ=America/New_York          # EDIT: your timezone
 
 # --- Optional: NAS storage ---
 # To store media on a NAS instead of locally, replace ./media:/media above with:

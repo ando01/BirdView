@@ -31,30 +31,12 @@ cp config.example.yml config/config.yml
 
 ### 2. Edit docker-compose.yml
 
-Set the four `# EDIT` values for your network. To find them:
+Two optional edits:
 
-```bash
-ip route show default
-# default via 192.168.20.1 dev ens18 ...
-#                           ^^^^^^^^^^^  <- interface and gateway
+- **Port** — change the left side of `"7766:7766"` if you want a different host port
+- **Timezone** — set `TZ` to your local timezone
 
-ip -o -f inet addr show ens18
-# ... 192.168.20.50/24 ...
-#     ^^^^^^^^^^^^^^^^  <- your subnet is 192.168.20.0/24
-```
-
-Update these lines in `docker-compose.yml`:
-
-```yaml
-environment:
-  - TZ=America/New_York          # your timezone
-
-ipv4_address: 192.168.1.100      # desired IP for the container (static profile)
-
-parent: eth0                     # your interface (e.g. ens18, enp3s0)
-subnet: 192.168.1.0/24           # your LAN subnet
-gateway: 192.168.1.1             # your router IP
-```
+Remove the `devices:` line if you don't have a Coral TPU.
 
 ### 3. Edit config/config.yml
 
@@ -75,24 +57,12 @@ mqtt:
 ### 4. Start the container
 
 ```bash
-# Static IP (recommended — container gets a fixed LAN IP):
-docker compose --profile static up -d
-
-# DHCP (container requests an IP from your router):
-docker compose --profile dhcp up -d
+docker compose up -d
 ```
-
-> **Network note:** The compose file uses a `macvlan` network so BirdFeeder gets its own IP address directly on your LAN. This lets it reach Frigate and your MQTT broker at their normal LAN addresses with no extra routing.
 
 ### 5. Open the web UI
 
-`http://<container-ip>:7766`
-
-## Network setup
-
-All network settings are configured directly in `docker-compose.yml`. The compose file uses a `macvlan` network so BirdFeeder gets its own IP address on your LAN, allowing it to reach Frigate and your MQTT broker at their normal addresses with no extra routing.
-
-Remove the `devices:` entry in `docker-compose.yml` if you don't have a Coral TPU.
+`http://<docker-host-ip>:7766`
 
 ## Configuration
 

@@ -1,18 +1,58 @@
+# Usage:
+#   Static IP:  docker compose --profile static up -d
+#   DHCP:       docker compose --profile dhcp up -d
+#
+# Before starting, set the values marked with <-- below.
+
+x-birdfeeder: &birdfeeder-base
+  image: ghcr.io/ando01/birdview:latest
+  container_name: birdfeeder
+  restart: unless-stopped
+  volumes:
+    - ./config:/config
+    - ./data:/data
+    - ./media:/media        # Local storage (works out of the box)
+  devices:
+    - /dev/bus/usb:/dev/bus/usb    # USB Coral TPU passthrough
+  environment:
+    - TZ=America/New_York
+
 services:
-  birdfeeder:
-    container_name: birdfeeder
-    build: .
-    restart: unless-stopped
-    ports:
-      - "7766:7766"
-    volumes:
-      - ./config:/config
-      - ./data:/data
-      - ./media:/media        # Local storage (works out of the box)
-    devices:
-      - /dev/bus/usb:/dev/bus/usb    # USB Coral TPU passthrough
-    environment:
-      - TZ=America/New_York
+
+  # --- Static IP ---
+  # Container always gets the same IP you choose.
+  birdfeeder-static:
+    <<: *birdfeeder-base
+    profiles: [static]
+    networks:
+      lan_static:
+        ipv4_address: 192.168.1.x    # <-- Your desired static IP
+
+  # --- DHCP ---
+  # Container requests an IP from your router's DHCP server on each start.
+  birdfeeder-dhcp:
+    <<: *birdfeeder-base
+    profiles: [dhcp]
+    networks:
+      - lan_dhcp
+
+networks:
+
+  # macvlan network with static IPAM (used by the static profile)
+  lan_static:
+    driver: macvlan
+    driver_opts:
+      parent: eth0                   # <-- Your host's physical interface (eth0, eno1, enp3s0…)
+    ipam:
+      config:
+        - subnet: 192.168.1.0/24     # <-- Your LAN subnet
+          gateway: 192.168.1.1       # <-- Your router IP
+
+  # macvlan network without IPAM — lets the LAN DHCP server assign the IP
+  lan_dhcp:
+    driver: macvlan
+    driver_opts:
+      parent: eth0                   # <-- Same host interface as above
 
 # --- Optional: NAS storage ---
 # To store media on a NAS instead of locally, replace ./media:/media above with:

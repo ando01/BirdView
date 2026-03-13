@@ -1,6 +1,7 @@
 import json
 import logging
 import threading
+import time
 from datetime import datetime
 from typing import Optional
 
@@ -17,7 +18,8 @@ class MQTTPublisher:
     def __init__(self, config: MQTTConfig, web_config: WebConfig):
         self._config = config
         self._web_port = web_config.port
-        self._client = mqtt.Client(client_id="birdfeeder", protocol=mqtt.MQTTv311)
+        client_id = f"birdfeeder-pub-{int(time.time())}"
+        self._client = mqtt.Client(client_id=client_id, protocol=mqtt.MQTTv311)
         self._connected = False
 
         if config.username:

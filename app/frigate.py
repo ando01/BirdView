@@ -57,7 +57,8 @@ class FrigateConsumer(threading.Thread):
         self._connected = False
         self._lock = threading.Lock()
 
-        self._client = mqtt.Client(client_id="birdfeeder-frigate-sub", protocol=mqtt.MQTTv311)
+        client_id = f"birdfeeder-sub-{int(time.time())}"
+        self._client = mqtt.Client(client_id=client_id, protocol=mqtt.MQTTv311)
         if mqtt_config.username:
             self._client.username_pw_set(mqtt_config.username, mqtt_config.password)
         self._client.on_connect = self._on_connect

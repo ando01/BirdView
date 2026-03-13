@@ -29,13 +29,32 @@ mkdir config
 cp config.example.yml config/config.yml
 ```
 
-### 2. Run setup
+### 2. Edit docker-compose.yml
+
+Set the four `# EDIT` values for your network. To find them:
 
 ```bash
-chmod +x setup.sh && ./setup.sh
+ip route show default
+# default via 192.168.20.1 dev ens18 ...
+#                           ^^^^^^^^^^^  <- interface and gateway
+
+ip -o -f inet addr show ens18
+# ... 192.168.20.50/24 ...
+#     ^^^^^^^^^^^^^^^^  <- your subnet is 192.168.20.0/24
 ```
 
-The script auto-detects your host's network interface, gateway, and LAN subnet, then writes a `.env` file that Docker Compose reads automatically. It also copies `config.example.yml` to `config/config.yml` if you don't already have one.
+Update these lines in `docker-compose.yml`:
+
+```yaml
+environment:
+  - TZ=America/New_York          # your timezone
+
+ipv4_address: 192.168.1.100      # desired IP for the container (static profile)
+
+parent: eth0                     # your interface (e.g. ens18, enp3s0)
+subnet: 192.168.1.0/24           # your LAN subnet
+gateway: 192.168.1.1             # your router IP
+```
 
 ### 3. Edit config/config.yml
 
@@ -71,15 +90,7 @@ docker compose --profile dhcp up -d
 
 ## Network setup
 
-`setup.sh` handles this automatically by writing a `.env` file. If you need to override anything, edit `.env` directly:
-
-| Variable | Description |
-|----------|-------------|
-| `PARENT_IFACE` | Host network interface (auto-detected, e.g. `ens18`, `eth0`) |
-| `STATIC_IP` | Fixed LAN IP for the container (static profile only) |
-| `LAN_SUBNET` | Your LAN subnet, e.g. `192.168.1.0/24` (auto-detected) |
-| `LAN_GATEWAY` | Your router IP (auto-detected) |
-| `TZ` | Timezone, e.g. `America/New_York` |
+All network settings are configured directly in `docker-compose.yml`. The compose file uses a `macvlan` network so BirdFeeder gets its own IP address on your LAN, allowing it to reach Frigate and your MQTT broker at their normal addresses with no extra routing.
 
 Remove the `devices:` entry in `docker-compose.yml` if you don't have a Coral TPU.
 
@@ -232,6 +243,5 @@ birdfeeder/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── config.example.yml
-├── setup.sh             # Auto-detects network interface and writes .env
 └── requirements.txt
 ```

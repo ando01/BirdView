@@ -29,7 +29,15 @@ mkdir config
 cp config.example.yml config/config.yml
 ```
 
-### 2. Edit config/config.yml
+### 2. Run setup
+
+```bash
+chmod +x setup.sh && ./setup.sh
+```
+
+The script auto-detects your host's network interface, gateway, and LAN subnet, then writes a `.env` file that Docker Compose reads automatically. It also copies `config.example.yml` to `config/config.yml` if you don't already have one.
+
+### 3. Edit config/config.yml
 
 Set your Frigate server address and MQTT broker:
 
@@ -45,7 +53,7 @@ mqtt:
   port: 1883
 ```
 
-### 3. Start the container
+### 4. Start the container
 
 ```bash
 # Static IP (recommended — container gets a fixed LAN IP):
@@ -57,21 +65,23 @@ docker compose --profile dhcp up -d
 
 > **Network note:** The compose file uses a `macvlan` network so BirdFeeder gets its own IP address directly on your LAN. This lets it reach Frigate and your MQTT broker at their normal LAN addresses with no extra routing.
 
-### 4. Open the web UI
+### 5. Open the web UI
 
 `http://<container-ip>:7766`
 
-## docker-compose.yml setup
+## Network setup
 
-Before starting, set the values marked with `<--` in `docker-compose.yml`:
+`setup.sh` handles this automatically by writing a `.env` file. If you need to override anything, edit `.env` directly:
 
-| Setting | Location | Description |
-|---------|----------|-------------|
-| `ipv4_address` | `lan_static` network | Fixed IP to assign the container (static profile) |
-| `parent` | both networks | Host network interface (e.g. `eth0`, `eno1`, `enp3s0`) |
-| `subnet` / `gateway` | `lan_static` network | Your LAN subnet and router IP |
+| Variable | Description |
+|----------|-------------|
+| `PARENT_IFACE` | Host network interface (auto-detected, e.g. `ens18`, `eth0`) |
+| `STATIC_IP` | Fixed LAN IP for the container (static profile only) |
+| `LAN_SUBNET` | Your LAN subnet, e.g. `192.168.1.0/24` (auto-detected) |
+| `LAN_GATEWAY` | Your router IP (auto-detected) |
+| `TZ` | Timezone, e.g. `America/New_York` |
 
-Remove the `devices:` entry if you don't have a Coral TPU.
+Remove the `devices:` entry in `docker-compose.yml` if you don't have a Coral TPU.
 
 ## Configuration
 
@@ -222,5 +232,6 @@ birdfeeder/
 ├── Dockerfile
 ├── docker-compose.yml
 ├── config.example.yml
+├── setup.sh             # Auto-detects network interface and writes .env
 └── requirements.txt
 ```

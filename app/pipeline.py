@@ -162,8 +162,11 @@ class FrigatePipeline:
             self._events_today += 1
             self._last_detection_info = {
                 "species": classification.common_name,
-                "score": classification.score,
+                "scientific_name": classification.scientific_name,
+                "score": round(classification.score, 3),
                 "time": detection_time.strftime("%H:%M:%S"),
+                "thumbnail_path": thumbnail_path,
+                "snapshot_path": snapshot_path,
             }
 
         logger.info(

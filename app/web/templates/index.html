@@ -2,6 +2,17 @@
 {% block title %}BirdFeeder - Today{% endblock %}
 
 {% block content %}
+<div id="lastSeenCard" class="card mb-4 d-none">
+    <div class="card-body d-flex align-items-center gap-3 py-2">
+        <img id="lastSeenThumb" src="" alt="" class="rounded" style="max-height:80px; cursor:pointer;">
+        <div>
+            <div class="fw-bold fs-5" id="lastSeenSpecies"></div>
+            <div class="text-muted small" id="lastSeenMeta"></div>
+        </div>
+        <span class="badge bg-success ms-auto">Last Seen</span>
+    </div>
+</div>
+
 <div class="row mb-3">
     <div class="col">
         <form class="d-inline" onsubmit="return navigateToDate(event)">
@@ -93,6 +104,29 @@ function navigateToDate(e) {
     const date = document.getElementById('datePicker').value;
     if (date) window.location.href = '/daily_summary/' + date;
     return false;
+}
+
+function onStatusUpdate(data) {
+    const card = document.getElementById('lastSeenCard');
+    const d = data.last_detection;
+    if (!d) return;
+
+    card.classList.remove('d-none');
+    document.getElementById('lastSeenSpecies').textContent = d.species;
+    document.getElementById('lastSeenMeta').textContent =
+        'Today at ' + d.time + ' \u00b7 ' + Math.round(d.score * 100) + '% confidence';
+
+    const thumb = document.getElementById('lastSeenThumb');
+    if (d.thumbnail_path) {
+        thumb.src = '/media/' + d.thumbnail_path;
+        thumb.classList.remove('d-none');
+        if (d.snapshot_path) {
+            thumb.onclick = () => openMediaModal(d.species, '/media/' + d.snapshot_path, '');
+            thumb.style.cursor = 'pointer';
+        }
+    } else {
+        thumb.classList.add('d-none');
+    }
 }
 </script>
 {% endblock %}

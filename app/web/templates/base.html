@@ -99,7 +99,7 @@
                     const badge = document.getElementById('detectingBadge');
                     const events = document.getElementById('eventsToday');
 
-                    if (data.camera_connected) {
+                    if (data.frigate_connected) {
                         dot.className = 'status-dot status-online';
                         text.textContent = 'Connected';
                     } else {
@@ -107,21 +107,21 @@
                         text.textContent = 'Offline';
                     }
 
-                    if (data.detecting) {
+                    if (data.last_detection) {
                         badge.classList.remove('d-none');
-                        if (data.last_detection) {
-                            badge.textContent = data.last_detection.species;
-                        }
+                        badge.textContent = data.last_detection.species;
                     } else {
                         badge.classList.add('d-none');
                     }
 
-                    events.textContent = data.events_today + ' today';
+                    events.textContent = (data.events_today || 0) + ' today';
+
+                    if (typeof onStatusUpdate === 'function') onStatusUpdate(data);
                 })
                 .catch(() => {});
         }
         updateStatus();
-        setInterval(updateStatus, 2000);
+        setInterval(updateStatus, 5000);
     </script>
     {% block scripts %}{% endblock %}
 </body>

@@ -34,13 +34,17 @@ storage:
   # JPEG quality for snapshots (1-100)
   snapshot_quality: 95
 
-# MQTT is required for Frigate event subscription
+# MQTT — BirdFeeder subscribes to the same broker Frigate publishes its events to.
+# Frigate publishes bird detections to frigate/events; BirdFeeder picks them up here.
+#
+# broker defaults to frigate.host if not set, so you only need to specify it
+# if your MQTT broker is on a different host than Frigate (e.g. Home Assistant).
 mqtt:
-  broker: 192.168.1.x
+  # broker: 192.168.1.x   # Optional: only needed if different from frigate.host
   port: 1883
   username: ""
   password: ""
-  # MQTT topic prefix for all messages
+  # MQTT topic prefix for BirdFeeder's own published messages (species results, HA discovery)
   topic_prefix: birdfeeder
   # Auto-register sensors in Home Assistant via MQTT Discovery
   homeassistant_discovery: true

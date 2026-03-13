@@ -94,9 +94,12 @@ def load_config(path: str = "/config/config.yml") -> AppConfig:
 
     mqtt = None
     if "mqtt" in raw and raw["mqtt"]:
-        mqtt_raw = raw["mqtt"]
-        if mqtt_raw.get("broker"):
-            mqtt = _build_dataclass(MQTTConfig, mqtt_raw)
+        mqtt_raw = dict(raw["mqtt"])
+        # Default broker to frigate.host — BirdFeeder subscribes to the same
+        # MQTT broker that Frigate publishes its events to.
+        if not mqtt_raw.get("broker"):
+            mqtt_raw["broker"] = frigate.host
+        mqtt = _build_dataclass(MQTTConfig, mqtt_raw)
 
     config = AppConfig(
         frigate=frigate,

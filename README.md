@@ -40,18 +40,18 @@ Remove the `devices:` line if you don't have a Coral TPU.
 
 ### 3. Edit config/config.yml
 
-Set your Frigate server address and MQTT broker:
+Set your Frigate server address. BirdFeeder subscribes to the same MQTT broker that Frigate publishes its events to, so `mqtt.broker` defaults to `frigate.host` — you only need to set it separately if your MQTT broker is on a different host (e.g. Home Assistant on a separate machine).
 
 ```yaml
 frigate:
   host: 192.168.1.x    # IP or hostname of your Frigate server
-  port: 5000
   cameras:
-    - backyard           # camera name(s) from your Frigate config
+    - birdfeeder         # camera name(s) from your Frigate config
 
 mqtt:
-  broker: 192.168.1.x  # usually the same host as Frigate / Home Assistant
-  port: 1883
+  # broker: 192.168.1.x  # only needed if MQTT broker is on a different host than Frigate
+  username: your_mqtt_user
+  password: your_mqtt_password
 ```
 
 ### 4. Start the container
@@ -105,15 +105,17 @@ All configuration lives in `config/config.yml`. See [`config.example.yml`](confi
 
 ### MQTT
 
-Omit the `mqtt` section entirely to disable MQTT. MQTT is required for receiving Frigate events.
+MQTT is required — it's how BirdFeeder receives bird detection events from Frigate.
+
+**How it works:** Frigate connects to your MQTT broker and publishes detections to `frigate/events`. BirdFeeder subscribes to that same broker to receive those events, classifies the bird species, then publishes its own results back to MQTT for Home Assistant.
 
 | Key | Default | Description |
 |-----|---------|-------------|
-| `broker` | *(required)* | MQTT broker IP or hostname |
+| `broker` | `frigate.host` | MQTT broker IP or hostname. Defaults to your Frigate host — only set this if your broker is on a different machine |
 | `port` | `1883` | MQTT broker port |
 | `username` | `""` | MQTT username (empty = no auth) |
 | `password` | `""` | MQTT password |
-| `topic_prefix` | `birdfeeder` | Prefix for all published topics |
+| `topic_prefix` | `birdfeeder` | Prefix for BirdFeeder's published topics |
 | `homeassistant_discovery` | `true` | Auto-register sensors in Home Assistant |
 
 **Topics published:**

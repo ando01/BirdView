@@ -60,6 +60,12 @@ mqtt:
 docker compose up -d
 ```
 
+> If you get a conflict error about the container name already being in use, remove the old container first:
+> ```bash
+> docker rm -f birdfeeder
+> docker compose up -d
+> ```
+
 ### 5. Open the web UI
 
 `http://<docker-host-ip>:7766`

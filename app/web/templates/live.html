@@ -52,24 +52,30 @@
             .then(r => r.json())
             .then(data => {
                 streamUrlsLoaded = true;
+                console.log('Stream URLs response:', data);
                 const stream = document.getElementById('liveStream');
                 const offline = document.getElementById('streamOffline');
                 const cameras = data.cameras;
                 if (cameras && cameras.length > 0) {
                     const url = data.mjpeg_base + '/' + cameras[0] + '/latest.jpg';
+                    console.log('Loading stream from:', url);
                     stream.onload = function() {
+                        console.log('Stream loaded successfully');
                         stream.classList.remove('d-none');
                         offline.classList.add('d-none');
                     };
                     stream.onerror = function() {
+                        console.error('Stream failed to load');
                         stream.classList.add('d-none');
                         offline.classList.remove('d-none');
                         offline.innerHTML = '<h4>Stream Unavailable</h4><p class="text-muted">Could not load camera feed from Frigate</p>';
                     };
                     stream.src = url;
+                } else {
+                    console.log('No cameras found in response');
                 }
             })
-            .catch(() => {});
+            .catch(err => console.error('Failed to fetch stream URLs:', err));
     }
 
     function updateLiveStatus() {

@@ -46,17 +46,26 @@
 <script>
     let streamUrlsLoaded = false;
 
+    let streamCamera = null;
+    let streamInterval = null;
+
+    function refreshStream() {
+        if (!streamCamera) return;
+        const stream = document.getElementById('liveStream');
+        // Add timestamp to bypass cache
+        stream.src = '/api/frigate/snapshot/' + streamCamera + '?t=' + Date.now();
+    }
+
     function loadStreamUrls() {
-        if (streamUrlsLoaded) return;
+        if (streamCamera) return;
         fetch('/api/frigate_stream_urls')
             .then(r => r.json())
             .then(data => {
-                streamUrlsLoaded = true;
                 const stream = document.getElementById('liveStream');
                 const offline = document.getElementById('streamOffline');
                 const cameras = data.cameras;
                 if (cameras && cameras.length > 0) {
-                    const url = '/api/frigate/snapshot/' + cameras[0];
+                    streamCamera = cameras[0];
                     stream.onload = function() {
                         stream.classList.remove('d-none');
                         offline.classList.add('d-none');
@@ -66,7 +75,11 @@
                         offline.classList.remove('d-none');
                         offline.innerHTML = '<h4>Stream Unavailable</h4><p class="text-muted">Could not load camera feed from Frigate</p>';
                     };
-                    stream.src = url;
+                    refreshStream();
+                    // Refresh snapshot every second for live effect
+                    if (!streamInterval) {
+                        streamInterval = setInterval(refreshStream, 1000);
+                    }
                 }
             })
             .catch(() => {});

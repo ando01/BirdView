@@ -53,11 +53,20 @@
             .then(data => {
                 streamUrlsLoaded = true;
                 const stream = document.getElementById('liveStream');
+                const offline = document.getElementById('streamOffline');
                 const cameras = data.cameras;
                 if (cameras && cameras.length > 0) {
-                    stream.src = data.mjpeg_base + '/' + cameras[0] + '/latest.jpg';
-                    stream.classList.remove('d-none');
-                    document.getElementById('streamOffline').classList.add('d-none');
+                    const url = data.mjpeg_base + '/' + cameras[0] + '/latest.jpg';
+                    stream.onload = function() {
+                        stream.classList.remove('d-none');
+                        offline.classList.add('d-none');
+                    };
+                    stream.onerror = function() {
+                        stream.classList.add('d-none');
+                        offline.classList.remove('d-none');
+                        offline.innerHTML = '<h4>Stream Unavailable</h4><p class="text-muted">Could not load camera feed from Frigate</p>';
+                    };
+                    stream.src = url;
                 }
             })
             .catch(() => {});

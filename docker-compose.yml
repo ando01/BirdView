@@ -1,7 +1,6 @@
 services:
   birdfeeder:
-    build: .
-    # image: ghcr.io/ando01/birdview:latest  # uncomment to use pre-built image
+    image: ghcr.io/ando01/birdview:latest
     container_name: birdfeeder
     restart: unless-stopped
     ports:

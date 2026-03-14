@@ -55,7 +55,7 @@
                 const stream = document.getElementById('liveStream');
                 const cameras = data.cameras;
                 if (cameras && cameras.length > 0) {
-                    stream.src = data.mjpeg_base + '/' + cameras[0];
+                    stream.src = data.mjpeg_base + '/' + cameras[0] + '/latest.jpg';
                     stream.classList.remove('d-none');
                     document.getElementById('streamOffline').classList.add('d-none');
                 }

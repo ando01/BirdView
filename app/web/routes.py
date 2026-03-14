@@ -126,17 +126,21 @@ def register_routes(app: Flask):
             "cameras": cameras,
         })
 
-    @app.route("/api/frigate/snapshot/<camera>")
-    def frigate_snapshot_proxy(camera):
+    @app.route("/api/frigate/stream/<camera>")
+    def frigate_stream_proxy(camera):
         import requests as req
-        from flask import Response
+        from flask import Response, stream_with_context
         config = current_app.config["app_config"]
         fc = config.frigate
-        url = f"http://{fc.host}:{fc.port}/api/{camera}/latest.jpg"
+        url = f"http://{fc.host}:{fc.port}/api/{camera}"
         try:
-            resp = req.get(url, timeout=fc.api_timeout)
-            resp.raise_for_status()
-            return Response(resp.content, mimetype="image/jpeg")
+            upstream = req.get(url, stream=True, timeout=None)
+            return Response(
+                stream_with_context(upstream.iter_content(chunk_size=4096)),
+                content_type=upstream.headers.get(
+                    "Content-Type", "multipart/x-mixed-replace; boundary=frame"
+                ),
+            )
         except Exception:
             return Response(status=502)
 

@@ -108,11 +108,22 @@ def register_routes(app: Flask):
 
     @app.route("/api/frigate_stream_urls")
     def frigate_stream_urls():
+        import requests
         config = current_app.config["app_config"]
         fc = config.frigate
         base = f"http://{fc.host}:{fc.port}"
+        cameras = fc.cameras
+        # If no cameras configured, fetch list from Frigate
+        if not cameras:
+            try:
+                resp = requests.get(f"{base}/api/config", timeout=5)
+                resp.raise_for_status()
+                frigate_config = resp.json()
+                cameras = list(frigate_config.get("cameras", {}).keys())
+            except Exception:
+                cameras = []
         return jsonify({
-            "cameras": fc.cameras,
+            "cameras": cameras,
             "mjpeg_base": f"{base}/api",
             "latest_base": f"{base}/api",
         })

@@ -132,7 +132,7 @@ def register_routes(app: Flask):
         from flask import Response, stream_with_context
         config = current_app.config["app_config"]
         fc = config.frigate
-        url = f"http://{fc.host}:{fc.port}/api/{camera}"
+        url = f"http://{fc.host}:{fc.port}/api/{camera}/stream"
         try:
             upstream = req.get(url, stream=True, timeout=None)
             return Response(

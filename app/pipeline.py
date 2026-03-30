@@ -51,27 +51,35 @@ class FrigatePipeline:
         with self._lock:
             return self._last_detection_info
 
-    def process_event(self, frigate_event: dict):
+    def process_event(self, frigate_event: dict, on_result: Optional[Callable[[bool], None]] = None):
         """Called by FrigateConsumer. Spawns a background thread per event."""
+
+        def _run():
+            success = self._do_process(frigate_event)
+            if on_result:
+                on_result(success)
+
         t = threading.Thread(
-            target=self._do_process,
-            args=(frigate_event,),
+            target=_run,
             daemon=True,
             name=f"FrigatePipeline-{frigate_event['event_id'][:8]}",
         )
         t.start()
 
-    def _do_process(self, event: dict):
+    def _do_process(self, event: dict) -> bool:
+        """Returns True if event was successfully classified and stored."""
         event_id = event["event_id"]
         self._semaphore.acquire()
         try:
-            self._process_event_inner(event)
+            return self._process_event_inner(event)
         except Exception:
             logger.exception("Error processing Frigate event %s", event_id[:8])
+            return False
         finally:
             self._semaphore.release()
 
-    def _process_event_inner(self, event: dict):
+    def _process_event_inner(self, event: dict) -> bool:
+        """Returns True if the event was successfully classified and stored."""
         event_id = event["event_id"]
         start_time = event.get("start_time")
         end_time = event.get("end_time")
@@ -91,17 +99,19 @@ class FrigatePipeline:
                 pass
 
         # Download snapshot
+        logger.info("Downloading snapshot for event %s...", event_id[:8])
         jpeg_bytes = self._frigate.get_snapshot_bytes(event_id)
         if jpeg_bytes is None:
             logger.warning("No snapshot for event %s, skipping", event_id[:8])
-            return
+            return False
+        logger.info("Snapshot downloaded for event %s (%d bytes)", event_id[:8], len(jpeg_bytes))
 
         # Decode JPEG to numpy array for classification
         arr = np.frombuffer(jpeg_bytes, dtype=np.uint8)
         frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         if frame is None:
             logger.warning("Failed to decode snapshot for event %s", event_id[:8])
-            return
+            return False
 
         # Extract bird crop using Frigate box [x1, y1, x2, y2] (pixel coords)
         box = event.get("box", [])
@@ -121,8 +131,13 @@ class FrigatePipeline:
         # Classify
         classification = self._classifier.classify(crop)
         if classification is None:
-            logger.debug("Event %s: below classification threshold, skipping", event_id[:8])
-            return
+            reject_info = self._classifier.last_reject_reason or "unknown"
+            logger.warning(
+                "Event %s REJECTED by classifier: %s (camera=%s, frigate_score=%.2f)",
+                event_id[:8], reject_info, event.get("camera", "?"),
+                event.get("frigate_score", 0.0),
+            )
+            return False
 
         # Save snapshot bytes (raw JPEG from Frigate)
         snapshot_path = self._storage.save_snapshot_bytes(
@@ -203,3 +218,5 @@ class FrigatePipeline:
                                         event.get("frigate_score", 0.0), snapshot_path)
             except Exception:
                 logger.exception("Error in on_event_complete for %s", event_id[:8])
+
+        return True

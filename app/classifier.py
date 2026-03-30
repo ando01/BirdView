@@ -74,6 +74,7 @@ class BirdClassifier:
         self._birdnames_db = os.path.join(MODELS_DIR, BIRDNAMES_DB)
 
         self._labels = self._load_labels()
+        self._last_reject_reason = None
 
         logger.info(
             "BirdClassifier ready (Edge TPU: %s, labels: %d species)",
@@ -163,8 +164,14 @@ class BirdClassifier:
         canvas[y_off : y_off + new_h, x_off : x_off + new_w] = resized
         return canvas
 
+    @property
+    def last_reject_reason(self) -> Optional[str]:
+        return self._last_reject_reason
+
     def classify(self, bird_crop: np.ndarray) -> Optional[Classification]:
         """Classify a cropped bird image. Returns None if below threshold."""
+        self._last_reject_reason = None
+
         # Get dynamic threshold from database
         threshold = self._threshold
         if self._db:
@@ -189,8 +196,14 @@ class BirdClassifier:
         top_score = float(scores[top_index])
 
         if top_index == BACKGROUND_INDEX:
+            self._last_reject_reason = "classified as background (index %d, score=%.3f)" % (top_index, top_score)
             return None
         if top_score < threshold:
+            label_name = self._labels.get(top_index, f"index {top_index}")
+            self._last_reject_reason = (
+                "score %.3f < threshold %.3f (best guess: %s)"
+                % (top_score, threshold, label_name)
+            )
             return None
 
         scientific_name = self._labels.get(top_index, f"Unknown ({top_index})")

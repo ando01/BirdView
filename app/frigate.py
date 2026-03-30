@@ -17,15 +17,25 @@ class FrigateClient:
         self._base_url = f"http://{config.host}:{config.port}"
         self._timeout = config.api_timeout
 
-    def get_snapshot_bytes(self, event_id: str) -> Optional[bytes]:
+    def get_snapshot_bytes(self, event_id: str, retries: int = 2) -> Optional[bytes]:
         url = f"{self._base_url}/api/events/{event_id}/snapshot.jpg"
-        try:
-            resp = requests.get(url, timeout=self._timeout)
-            resp.raise_for_status()
-            return resp.content
-        except requests.RequestException as e:
-            logger.warning("Failed to download snapshot for %s: %s", event_id[:8], e)
-            return None
+        for attempt in range(1 + retries):
+            try:
+                resp = requests.get(url, timeout=self._timeout)
+                resp.raise_for_status()
+                return resp.content
+            except requests.RequestException as e:
+                if attempt < retries:
+                    delay = (attempt + 1)  # 1s, 2s
+                    logger.warning(
+                        "Snapshot download attempt %d/%d failed for %s: %s — retrying in %ds",
+                        attempt + 1, 1 + retries, event_id[:8], e, delay,
+                    )
+                    time.sleep(delay)
+                else:
+                    logger.warning("Failed to download snapshot for %s after %d attempts: %s",
+                                   event_id[:8], 1 + retries, e)
+        return None
 
     def download_clip(self, event_id: str, dest_path: str) -> bool:
         url = f"{self._base_url}/api/events/{event_id}/clip.mp4"
@@ -49,13 +59,14 @@ class FrigateClient:
 
 class FrigateConsumer(threading.Thread):
     def __init__(self, frigate_config: FrigateConfig, mqtt_config: MQTTConfig,
-                 on_bird_event: Callable[[dict], None]):
+                 on_bird_event: Callable[[dict, Optional[Callable[[bool], None]]], None]):
         super().__init__(daemon=True, name="FrigateConsumer")
         self._frigate_cfg = frigate_config
         self._on_bird_event = on_bird_event
         self._running = True
         self._connected = False
         self._lock = threading.Lock()
+        self._classified_events: set = set()  # event IDs successfully classified
 
         client_id = f"birdfeeder-sub-{int(time.time())}"
         self._client = mqtt.Client(client_id=client_id, protocol=mqtt.MQTTv311)
@@ -107,19 +118,41 @@ class FrigateConsumer(threading.Thread):
         # Filter by camera
         watched = self._frigate_cfg.cameras
         if watched and camera not in watched:
+            logger.debug("Ignoring event from unwatched camera %s", camera)
             return
         if label != "bird":
-            return
-
-        # Only process on end (or eagerly on snapshot if configured)
-        should_process = event_type == "end"
-        if not should_process and self._frigate_cfg.process_on_snapshot:
-            should_process = event_type in ("new", "update") and after.get("has_snapshot")
-        if not should_process:
+            logger.debug("Ignoring non-bird label %r on %s", label, camera)
             return
 
         event_id = after.get("id")
         if not event_id:
+            logger.debug("Ignoring bird event with no id on %s", camera)
+            return
+
+        # Decide whether to process this message
+        already_classified = event_id in self._classified_events
+        has_snapshot = after.get("has_snapshot", False)
+
+        if event_type in ("new", "update") and has_snapshot and not already_classified:
+            # Process eagerly on first snapshot — bird is in frame now
+            logger.info(
+                "Bird event (early): id=%s camera=%s type=%s score=%.2f",
+                event_id[:8], camera, event_type, after.get("score", 0.0),
+            )
+        elif event_type == "end" and not already_classified:
+            # Fallback: process on end if we haven't classified yet
+            logger.info(
+                "Bird event (end fallback): id=%s camera=%s score=%.2f",
+                event_id[:8], camera, after.get("score", 0.0),
+            )
+        elif event_type == "end" and already_classified:
+            logger.debug("Skipping end for already-classified event %s", event_id[:8])
+            return
+        else:
+            logger.debug(
+                "Skipping bird event id=%s type=%s has_snapshot=%s already_classified=%s",
+                event_id[:8], event_type, has_snapshot, already_classified,
+            )
             return
 
         normalized = {
@@ -129,10 +162,18 @@ class FrigateConsumer(threading.Thread):
             "box": after.get("box", []),
             "start_time": after.get("start_time"),
             "end_time": after.get("end_time"),
-            "has_snapshot": after.get("has_snapshot", False),
+            "has_snapshot": has_snapshot,
             "has_clip": after.get("has_clip", False),
         }
+
+        def _on_result(success: bool):
+            if success:
+                self._classified_events.add(event_id)
+                # Cap set size to prevent unbounded growth
+                if len(self._classified_events) > 500:
+                    self._classified_events.clear()
+
         try:
-            self._on_bird_event(normalized)
+            self._on_bird_event(normalized, _on_result)
         except Exception:
             logger.exception("Error dispatching Frigate event %s", event_id[:8])

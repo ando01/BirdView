@@ -67,6 +67,7 @@ class FrigateConsumer(threading.Thread):
         self._connected = False
         self._lock = threading.Lock()
         self._classified_events: set = set()  # event IDs successfully classified
+        self._attempted_events: set = set()  # event IDs we've already tried (prevents update spam)
 
         client_id = f"birdfeeder-sub-{int(time.time())}"
         self._client = mqtt.Client(client_id=client_id, protocol=mqtt.MQTTv311)
@@ -133,8 +134,11 @@ class FrigateConsumer(threading.Thread):
         already_classified = event_id in self._classified_events
         has_snapshot = after.get("has_snapshot", False)
 
-        if event_type in ("new", "update") and has_snapshot and not already_classified:
+        already_attempted = event_id in self._attempted_events
+
+        if event_type in ("new", "update") and has_snapshot and not already_attempted:
             # Process eagerly on first snapshot — bird is in frame now
+            self._attempted_events.add(event_id)
             logger.info(
                 "Bird event (early): id=%s camera=%s type=%s score=%.2f",
                 event_id[:8], camera, event_type, after.get("score", 0.0),
@@ -146,8 +150,11 @@ class FrigateConsumer(threading.Thread):
                 event_id[:8], camera, after.get("score", 0.0),
             )
         elif event_type == "end" and already_classified:
-            logger.debug("Skipping end for already-classified event %s", event_id[:8])
-            return
+            # Still process — clip download only happens on "end" (needs end_time)
+            logger.info(
+                "Bird event (end, clip pass): id=%s camera=%s score=%.2f",
+                event_id[:8], camera, after.get("score", 0.0),
+            )
         else:
             logger.debug(
                 "Skipping bird event id=%s type=%s has_snapshot=%s already_classified=%s",
@@ -157,6 +164,7 @@ class FrigateConsumer(threading.Thread):
 
         normalized = {
             "event_id": event_id,
+            "event_type": event_type,
             "camera": camera,
             "frigate_score": after.get("score", 0.0),
             "box": after.get("box", []),
@@ -169,9 +177,11 @@ class FrigateConsumer(threading.Thread):
         def _on_result(success: bool):
             if success:
                 self._classified_events.add(event_id)
-                # Cap set size to prevent unbounded growth
+                # Cap set sizes to prevent unbounded growth
                 if len(self._classified_events) > 500:
                     self._classified_events.clear()
+            if len(self._attempted_events) > 500:
+                self._attempted_events.clear()
 
         try:
             self._on_bird_event(normalized, _on_result)

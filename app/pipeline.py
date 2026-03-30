@@ -193,8 +193,8 @@ class FrigatePipeline:
             event.get("camera", "?"),
         )
 
-        # Async clip download
-        if self._config.frigate.download_clips and event.get("has_clip"):
+        # Async clip download — only on "end" events (clip doesn't exist during early processing)
+        if self._config.frigate.download_clips and event.get("has_clip") and event.get("event_type") == "end":
             delay = self._config.frigate.clip_download_delay
 
             def _download_clip():

@@ -148,12 +148,28 @@ def register_routes(app: Flask):
         fc = config.frigate
         url = f"http://{fc.host}:{fc.port}/api/events/{event_id}/clip.mp4"
         try:
-            resp = req.get(url, stream=True, timeout=fc.api_timeout)
+            # Forward Range header from client (required for iOS video playback)
+            headers = {}
+            if "Range" in request.headers:
+                headers["Range"] = request.headers["Range"]
+
+            resp = req.get(url, stream=True, timeout=fc.api_timeout, headers=headers)
             resp.raise_for_status()
+
+            proxy_headers = {
+                "Content-Disposition": f"inline; filename={event_id}_clip.mp4",
+                "Accept-Ranges": "bytes",
+            }
+            if "Content-Length" in resp.headers:
+                proxy_headers["Content-Length"] = resp.headers["Content-Length"]
+            if "Content-Range" in resp.headers:
+                proxy_headers["Content-Range"] = resp.headers["Content-Range"]
+
             return Response(
                 resp.iter_content(chunk_size=65536),
+                status=resp.status_code,
                 mimetype="video/mp4",
-                headers={"Content-Disposition": f"inline; filename={event_id}_clip.mp4"},
+                headers=proxy_headers,
             )
         except Exception:
             return Response(status=502)

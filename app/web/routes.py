@@ -140,6 +140,24 @@ def register_routes(app: Flask):
         except Exception:
             return Response(status=502)
 
+    @app.route("/api/frigate/clip/<event_id>")
+    def frigate_clip_proxy(event_id):
+        import requests as req
+        from flask import Response
+        config = current_app.config["app_config"]
+        fc = config.frigate
+        url = f"http://{fc.host}:{fc.port}/api/events/{event_id}/clip.mp4"
+        try:
+            resp = req.get(url, stream=True, timeout=fc.api_timeout)
+            resp.raise_for_status()
+            return Response(
+                resp.iter_content(chunk_size=65536),
+                mimetype="video/mp4",
+                headers={"Content-Disposition": f"inline; filename={event_id}_clip.mp4"},
+            )
+        except Exception:
+            return Response(status=502)
+
     @app.route("/logs")
     def logs():
         return render_template("logs.html")

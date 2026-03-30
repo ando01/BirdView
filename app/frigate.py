@@ -37,19 +37,6 @@ class FrigateClient:
                                    event_id[:8], 1 + retries, e)
         return None
 
-    def download_clip(self, event_id: str, dest_path: str) -> bool:
-        url = f"{self._base_url}/api/events/{event_id}/clip.mp4"
-        try:
-            with requests.get(url, stream=True, timeout=self._timeout) as resp:
-                resp.raise_for_status()
-                with open(dest_path, "wb") as f:
-                    for chunk in resp.iter_content(chunk_size=65536):
-                        f.write(chunk)
-            return True
-        except requests.RequestException as e:
-            logger.warning("Failed to download clip for %s: %s", event_id[:8], e)
-            return False
-
     def get_mjpeg_url(self, camera_name: str) -> str:
         return f"{self._base_url}/api/{camera_name}"
 

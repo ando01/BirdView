@@ -50,7 +50,7 @@
                          class="thumb" style="cursor:pointer; max-height:60px;"
                          onclick="openMediaModal('{{ d.common_name }}',
                                   '{{ "/media/" + d.snapshot_path if d.snapshot_path else "" }}',
-                                  '{{ "/media/" + d.clip_path if d.clip_path else "" }}')">
+                                  '/api/frigate/clip/{{ d.event_id }}')">
                     {% endif %}
                 </td>
             </tr>

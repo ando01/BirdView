@@ -1,7 +1,5 @@
 import logging
-import os
 import threading
-import time
 from datetime import datetime
 from typing import Callable, Optional
 
@@ -192,24 +190,6 @@ class FrigatePipeline:
             duration,
             event.get("camera", "?"),
         )
-
-        # Async clip download — only on "end" events (clip doesn't exist during early processing)
-        if self._config.frigate.download_clips and event.get("has_clip") and event.get("event_type") == "end":
-            delay = self._config.frigate.clip_download_delay
-
-            def _download_clip():
-                time.sleep(delay)
-                tmp_path = os.path.join("/tmp", f"{event_id}_clip.mp4")
-                if self._frigate.download_clip(event_id, tmp_path):
-                    try:
-                        rel_path = self._storage.save_clip(event_id, tmp_path, detection_time)
-                        self._db.update_clip_path(event_id, rel_path)
-                        logger.info("Clip saved for event %s", event_id[:8])
-                    except Exception:
-                        logger.exception("Error saving clip for %s", event_id[:8])
-
-            clip_thread = threading.Thread(target=_download_clip, daemon=True)
-            clip_thread.start()
 
         # Notify callback
         if self._on_event_complete:

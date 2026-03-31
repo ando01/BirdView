@@ -95,16 +95,6 @@
             vid.play().catch(e => console.error('Play failed:', e));
         }
 
-        // Debug: surface video errors
-        document.addEventListener('DOMContentLoaded', function() {
-            const vid = document.getElementById('modalClip');
-            vid.addEventListener('error', function() {
-                const e = vid.error;
-                const msg = e ? 'Video error: code=' + e.code + ' ' + (e.message || '') : 'Unknown video error';
-                console.error(msg);
-                alert(msg);
-            });
-        });
     </script>
     <script>
         function updateStatus() {

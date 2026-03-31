@@ -148,28 +148,44 @@ def register_routes(app: Flask):
         fc = config.frigate
         url = f"http://{fc.host}:{fc.port}/api/events/{event_id}/clip.mp4"
         try:
-            # Forward Range header from client (required for iOS video playback)
-            headers = {}
-            if "Range" in request.headers:
-                headers["Range"] = request.headers["Range"]
-
-            resp = req.get(url, stream=True, timeout=fc.api_timeout, headers=headers)
+            # Fetch entire clip from Frigate (short clips, safe to buffer)
+            resp = req.get(url, timeout=fc.api_timeout)
             resp.raise_for_status()
+            data = resp.content
+            total = len(data)
 
-            proxy_headers = {
-                "Content-Disposition": f"inline; filename={event_id}_clip.mp4",
-                "Accept-Ranges": "bytes",
-            }
-            if "Content-Length" in resp.headers:
-                proxy_headers["Content-Length"] = resp.headers["Content-Length"]
-            if "Content-Range" in resp.headers:
-                proxy_headers["Content-Range"] = resp.headers["Content-Range"]
+            # Handle Range requests (required for Safari/iOS video playback)
+            range_header = request.headers.get("Range")
+            if range_header:
+                # Parse "bytes=start-end"
+                byte_range = range_header.strip().split("=")[1]
+                parts = byte_range.split("-")
+                start = int(parts[0])
+                end = int(parts[1]) if parts[1] else total - 1
+                end = min(end, total - 1)
+                length = end - start + 1
+
+                return Response(
+                    data[start:end + 1],
+                    status=206,
+                    mimetype="video/mp4",
+                    headers={
+                        "Content-Range": f"bytes {start}-{end}/{total}",
+                        "Accept-Ranges": "bytes",
+                        "Content-Length": str(length),
+                        "Content-Disposition": f"inline; filename={event_id}_clip.mp4",
+                    },
+                )
 
             return Response(
-                resp.iter_content(chunk_size=65536),
-                status=resp.status_code,
+                data,
+                status=200,
                 mimetype="video/mp4",
-                headers=proxy_headers,
+                headers={
+                    "Accept-Ranges": "bytes",
+                    "Content-Length": str(total),
+                    "Content-Disposition": f"inline; filename={event_id}_clip.mp4",
+                },
             )
         except Exception:
             return Response(status=502)

@@ -41,8 +41,7 @@
                 </div>
                 <div class="modal-body text-center">
                     <img id="modalSnapshot" class="img-fluid mb-2 d-none" alt="Snapshot">
-                    <video id="modalClip" class="img-fluid d-none" controls>
-                        <source id="modalClipSrc" type="video/mp4">
+                    <video id="modalClip" class="img-fluid d-none" controls playsinline preload="metadata">
                     </video>
                     <div class="mt-2">
                         <button class="btn btn-sm btn-outline-light" id="btnShowSnapshot" onclick="showSnapshot()">Snapshot</button>
@@ -59,15 +58,15 @@
             document.getElementById('mediaModalLabel').textContent = commonName;
             const img = document.getElementById('modalSnapshot');
             const vid = document.getElementById('modalClip');
-            const src = document.getElementById('modalClipSrc');
             const btnClip = document.getElementById('btnShowClip');
 
             img.src = snapshotUrl;
             img.classList.remove('d-none');
             vid.classList.add('d-none');
+            vid.removeAttribute('src');
 
             if (clipUrl) {
-                src.src = clipUrl;
+                vid.src = clipUrl;
                 vid.load();
                 btnClip.classList.remove('d-none');
             } else {

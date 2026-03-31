@@ -1,5 +1,6 @@
 services:
   birdfeeder:
+    build: .
     image: ghcr.io/ando01/birdview:latest
     container_name: birdfeeder
     restart: unless-stopped

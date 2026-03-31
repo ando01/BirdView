@@ -144,15 +144,18 @@ def register_routes(app: Flask):
     def frigate_clip_proxy(event_id):
         import requests as req
         from flask import Response
+        logger = logging.getLogger(__name__)
         config = current_app.config["app_config"]
         fc = config.frigate
         url = f"http://{fc.host}:{fc.port}/api/events/{event_id}/clip.mp4"
         try:
             # Fetch entire clip from Frigate (short clips, safe to buffer)
+            logger.info("Fetching clip from Frigate: %s", url)
             resp = req.get(url, timeout=fc.api_timeout)
             resp.raise_for_status()
             data = resp.content
             total = len(data)
+            logger.info("Clip fetched: %d bytes, Range: %s", total, request.headers.get("Range", "none"))
 
             # Handle Range requests (required for Safari/iOS video playback)
             range_header = request.headers.get("Range")

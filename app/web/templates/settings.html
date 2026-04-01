@@ -20,6 +20,30 @@
                     </small>
                 </div>
 
+                <hr class="border-secondary my-4">
+
+                <h6 class="mb-3">Video Clip Padding</h6>
+                <div class="mb-3">
+                    <label for="clipPrePadding" class="form-label">
+                        Pre-roll: <strong id="clipPrePaddingValue">3</strong>s before event
+                    </label>
+                    <input type="range" class="form-range" id="clipPrePadding"
+                           min="0" max="120" value="3" step="1">
+                    <small class="text-muted">
+                        Seconds of video to include before the bird was detected
+                    </small>
+                </div>
+                <div class="mb-4">
+                    <label for="clipPostPadding" class="form-label">
+                        Post-roll: <strong id="clipPostPaddingValue">10</strong>s after event
+                    </label>
+                    <input type="range" class="form-range" id="clipPostPadding"
+                           min="0" max="120" value="10" step="1">
+                    <small class="text-muted">
+                        Seconds of video to include after the bird left
+                    </small>
+                </div>
+
                 <div class="d-flex gap-2">
                     <button class="btn btn-primary" onclick="saveSettings()">
                         Save Settings
@@ -53,6 +77,11 @@ function loadSettings() {
             const classThresh = Math.round(data.classification_threshold * 100);
             document.getElementById('classificationThreshold').value = classThresh;
             document.getElementById('classificationThresholdValue').textContent = (classThresh / 100).toFixed(2);
+
+            document.getElementById('clipPrePadding').value = data.clip_pre_padding;
+            document.getElementById('clipPrePaddingValue').textContent = data.clip_pre_padding;
+            document.getElementById('clipPostPadding').value = data.clip_post_padding;
+            document.getElementById('clipPostPaddingValue').textContent = data.clip_post_padding;
         })
         .catch(err => {
             showSettingsAlert('Failed to load settings: ' + err.message, 'danger');
@@ -61,12 +90,16 @@ function loadSettings() {
 
 function saveSettings() {
     const classificationThreshold = parseInt(document.getElementById('classificationThreshold').value) / 100;
+    const clipPrePadding = parseInt(document.getElementById('clipPrePadding').value);
+    const clipPostPadding = parseInt(document.getElementById('clipPostPadding').value);
 
     fetch('/api/settings', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
-            classification_threshold: classificationThreshold
+            classification_threshold: classificationThreshold,
+            clip_pre_padding: clipPrePadding,
+            clip_post_padding: clipPostPadding,
         })
     })
     .then(r => r.json())
@@ -92,6 +125,12 @@ function showSettingsAlert(message, type) {
 
 document.getElementById('classificationThreshold').addEventListener('input', function(e) {
     document.getElementById('classificationThresholdValue').textContent = (e.target.value / 100).toFixed(2);
+});
+document.getElementById('clipPrePadding').addEventListener('input', function(e) {
+    document.getElementById('clipPrePaddingValue').textContent = e.target.value;
+});
+document.getElementById('clipPostPadding').addEventListener('input', function(e) {
+    document.getElementById('clipPostPaddingValue').textContent = e.target.value;
 });
 
 document.addEventListener('DOMContentLoaded', function() {

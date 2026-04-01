@@ -147,11 +147,37 @@ def register_routes(app: Flask):
         logger = logging.getLogger(__name__)
         config = current_app.config["app_config"]
         fc = config.frigate
+        db = current_app.config["db"]
+        pre_pad = db.get_setting("clip_pre_padding", fc.clip_pre_padding)
+        post_pad = db.get_setting("clip_post_padding", fc.clip_post_padding)
+
+        # Try to get an extended clip from recordings if padding is configured
         url = f"http://{fc.host}:{fc.port}/api/events/{event_id}/clip.mp4"
+        if pre_pad > 0 or post_pad > 0:
+            try:
+                event_resp = req.get(
+                    f"http://{fc.host}:{fc.port}/api/events/{event_id}",
+                    timeout=fc.api_timeout,
+                )
+                event_resp.raise_for_status()
+                ev = event_resp.json()
+                camera = ev.get("camera")
+                start_ts = ev.get("start_time")
+                end_ts = ev.get("end_time")
+                if camera and start_ts and end_ts:
+                    padded_start = float(start_ts) - pre_pad
+                    padded_end = float(end_ts) + post_pad
+                    url = (
+                        f"http://{fc.host}:{fc.port}/api/{camera}"
+                        f"/start/{padded_start}/end/{padded_end}/clip.mp4"
+                    )
+            except Exception:
+                logger.debug("Could not fetch event details for padding, using default clip")
+
         try:
-            # Fetch entire clip from Frigate (short clips, safe to buffer)
+            # Fetch clip from Frigate
             logger.info("Fetching clip from Frigate: %s", url)
-            resp = req.get(url, timeout=fc.api_timeout)
+            resp = req.get(url, timeout=max(fc.api_timeout, 30))
             resp.raise_for_status()
             data = resp.content
             total = len(data)
@@ -236,8 +262,14 @@ def register_routes(app: Flask):
         app_config = current_app.config["app_config"]
 
         classification_threshold = db.get_setting("classification_threshold", app_config.classification.threshold)
+        clip_pre_padding = db.get_setting("clip_pre_padding", app_config.frigate.clip_pre_padding)
+        clip_post_padding = db.get_setting("clip_post_padding", app_config.frigate.clip_post_padding)
 
-        return jsonify({"classification_threshold": classification_threshold})
+        return jsonify({
+            "classification_threshold": classification_threshold,
+            "clip_pre_padding": clip_pre_padding,
+            "clip_post_padding": clip_post_padding,
+        })
 
     @app.route("/api/settings", methods=["POST"])
     def api_settings_update():
@@ -250,5 +282,19 @@ def register_routes(app: Flask):
                 db.set_setting("classification_threshold", value)
             else:
                 return jsonify({"error": "classification_threshold must be between 0 and 1"}), 400
+
+        if "clip_pre_padding" in data:
+            value = int(data["clip_pre_padding"])
+            if 0 <= value <= 120:
+                db.set_setting("clip_pre_padding", value)
+            else:
+                return jsonify({"error": "clip_pre_padding must be between 0 and 120"}), 400
+
+        if "clip_post_padding" in data:
+            value = int(data["clip_post_padding"])
+            if 0 <= value <= 120:
+                db.set_setting("clip_post_padding", value)
+            else:
+                return jsonify({"error": "clip_post_padding must be between 0 and 120"}), 400
 
         return jsonify({"success": True})

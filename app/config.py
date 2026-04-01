@@ -25,6 +25,8 @@ class FrigateConfig:
     process_on_snapshot: bool = False  # True = classify on first snapshot, not event end
     download_clips: bool = True
     clip_download_delay: int = 5       # seconds to wait before fetching clip
+    clip_pre_padding: int = 3          # seconds to add before event start
+    clip_post_padding: int = 10        # seconds to add after event end
 
 
 @dataclass

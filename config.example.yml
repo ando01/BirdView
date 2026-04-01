@@ -14,6 +14,10 @@ frigate:
   download_clips: true
   # Seconds to wait before downloading the clip (gives Frigate time to finalize)
   clip_download_delay: 5
+  # Seconds of padding to add before/after the event for longer video clips
+  # Uses Frigate's recordings to extend beyond the event duration (0 = no padding)
+  clip_pre_padding: 3
+  clip_post_padding: 10
 
 classification:
   # Google birds_V1/3 species classifier (ships with container)
